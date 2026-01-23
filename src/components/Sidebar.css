@@ -1,0 +1,106 @@
+/* Sidebar Container */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 250px;
+    background-color: #333;
+    color: white;
+    transition: width 0.3s ease-in-out;
+    overflow-y: auto;
+    padding-top: 20px;
+}
+
+/* When Sidebar is Closed */
+.sidebar.closed {
+    width: 60px;
+}
+
+/* Sidebar Toggle Button */
+.toggle-btn {
+    position: absolute;
+    top: 15px;
+    right: -30px;
+    background-color: #333;
+    color: white;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+/* Sidebar Menu */
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    padding: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-menu li a {
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.sidebar-menu li:hover {
+    background-color: #444;
+    cursor: pointer;
+}
+
+/* Icon Styling */
+.sidebar-menu li svg {
+    font-size: 20px;
+}
+
+/* Hide Text when Sidebar is Closed */
+.hidden {
+    display: none;
+}
+
+/* Make Text Visible */
+.visible {
+    display: inline;
+}
+
+/* Logout Button */
+.logout {
+    margin-top: auto;
+    cursor: pointer;
+    padding: 15px;
+    background-color: red;
+    text-align: center;
+    transition: background-color 0.3s ease-in-out;
+}
+
+.logout:hover {
+    background-color: darkred;
+}
+
+.nested-menu {
+    list-style: none;
+    padding-left: 25px;
+    margin-top: 5px;
+  }
+  
+  .nested-menu li {
+    margin: 6px 0;
+  }
+  
+  .submenu {
+    list-style: none;
+    padding-left: 20px;
+}
+
+.submenu li {
+    margin: 5px 0;
+}
