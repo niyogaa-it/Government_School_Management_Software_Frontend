@@ -38,7 +38,7 @@ const CreateGrade = () => {
         school_id: isSuperAdmin ? values.school_id : user.school.id,
       };
 
-      const response = await axios.post("http://112.133.196.79:8080/grade/createGrade", payload);
+      const response = await axios.post("http://localhost:8080/grade/createGrade", payload);
 
       if (response.status === 201) {
         message.success("Grade created successfully!");
