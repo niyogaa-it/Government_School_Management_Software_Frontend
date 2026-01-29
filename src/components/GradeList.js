@@ -37,7 +37,7 @@ const GradeList = () => {
   const handleDelete = async (gradeId) => {
     if (window.confirm("Are you sure you want to delete this grade?")) {
       try {
-        await axios.delete(`http://112.133.196.79:8080/grade/deleteGrade/${gradeId}`);
+        await axios.delete(`http://localhost:8080/grade/deleteGrade/${gradeId}`);
         alert("Grade deleted successfully");
         fetchGrades(); // Refresh after delete
       } catch (error) {
