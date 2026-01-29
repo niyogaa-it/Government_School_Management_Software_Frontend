@@ -503,7 +503,6 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
                 />
             </Form.Item>
             <Form.Item
-                style={{ width: 315 }}
                 name="nationality"
                 label="Nationality"
                 rules={[{ required: true, message: 'Required!' }]}
@@ -515,7 +514,6 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
             </Form.Item>
 
             <Form.Item
-                style={{ width: 280 }}
                 name="state"
                 label="State"
                 rules={[{ required: true, message: 'Required!' }]}
@@ -527,7 +525,6 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
                 </Select>
             </Form.Item>
             <Form.Item
-                style={{ width: 315 }}
                 name="motherTongue"
                 label="Mother Tongue"
                 rules={[{ required: true, message: 'Required!' }]}
@@ -705,7 +702,6 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
                 <Input />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="fatherIncome"
                 label="Father's Annual Income"
                 rules={[
@@ -722,7 +718,6 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
                     }} />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="motherIncome"
                 label="Mother's Annual Income"
                 rules={[
@@ -761,8 +756,9 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
             </Form.Item>
             <Form.Item
                 label="Mobile Number"
+
                 name="mobileNumber"
-                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
+                rules={[{ pattern: /^[0-9]{10}$/, required: true, message: "Invalid phone number!" }]}
             >
                 <Input />
             </Form.Item>
@@ -789,6 +785,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
             <Form.Item
                 label="Guardian Phone Number"
                 name="guardianNumber"
+                 rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid Phone number!" }]}
             >
                 <Input />
             </Form.Item>
