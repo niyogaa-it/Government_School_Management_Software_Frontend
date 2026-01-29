@@ -35,7 +35,7 @@ const CreateSection = () => {
 
   const fetchGrades = async (schoolId) => {
     try {
-      const res = await axios.get(`http://112.133.196.79:8080/grade/getGradesBySchool/${schoolId}`);
+      const res = await axios.get(`http://localhost:8080/grade/getGradesBySchool/${schoolId}`);
       setGrades(res.data.grades || []);
     } catch {
       message.error("Failed to load grades");
@@ -56,7 +56,7 @@ const CreateSection = () => {
         status: 1,
       };
 
-      const res = await axios.post("http://112.133.196.79:8080/section/createSection", payload);
+      const res = await axios.post("http://localhost:8080/section/createSection", payload);
       if (res.status === 201) {
         message.success("Section created successfully!");
         form.resetFields();
