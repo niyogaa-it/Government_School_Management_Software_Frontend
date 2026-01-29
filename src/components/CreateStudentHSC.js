@@ -1,7 +1,7 @@
+import { useNavigate, useParams } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Button, Form, Input, Spin, Typography, message, Select, InputNumber, Radio, Steps, Card, Row, Col, Progress } from 'antd';
-import { useNavigate } from "react-router-dom";
 
 const { Title } = Typography;
 const { Step } = Steps;
@@ -13,13 +13,14 @@ const CreateStudenthsc = () => {
     const [loading, setLoading] = useState(false);
     const [grades, setGrades] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
+    const { id } = useParams();
+    const isEdit = Boolean(id);
     const [progressColor, setProgressColor] = useState("#ff4d4f");
     const user = JSON.parse(localStorage.getItem("user"));
     const schoolId = user?.school?.id;
     const [schools, setSchools] = useState([]);
     const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
     const [sections, setSections] = useState([]);
-    const [groups, setGroups] = useState([]);
     const navigate = useNavigate();
     const steps = [
         'Academic Details',
@@ -33,8 +34,8 @@ const CreateStudenthsc = () => {
     const [selectedGradeName, setSelectedGradeName] = useState('');
 
     const stepFields = [
-        ['school_id', 'academicYear', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'identificationmarks',
+        ['school_id', 'academicYear', 'dateofjoin', 'emisNum', 'aadharNumber'], // Step 0
+        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'identificationmarks',
             'religion', 'scheduledcasteOrtribecommunity', 'backwardcaste', 'bloodGroup', 'tribeTootherreligion', 'living', 'currentlivingaddress', 'motherTongue'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
@@ -55,6 +56,51 @@ const CreateStudenthsc = () => {
         const colors = ["#ff4d4f", "#ffa940", "#faad14", "#52c41a"];
         setProgressColor(colors[currentStep]);
     }, [currentStep]);
+
+    useEffect(() => {
+        if (!id) return;
+
+        const fetchStudentForEdit = async () => {
+            try {
+                const res = await axios.get(
+                    `http://localhost:8080/studenthsc/getStudenthscById/${id}`
+                );
+
+                const data = res.data.application;
+                const dobValue = data.dob ? data.dob.split("T")[0] : "";
+                const parsedAge =
+                    typeof data.age === "string"
+                        ? JSON.parse(data.age)
+                        : calculateAge(dobValue);
+
+                if (data.school_id) {
+                    await fetchGrades(data.school_id);
+                }
+
+                if (data.school_id && data.grade_id) {
+                    await fetchSections(data.school_id, data.grade_id); // 👈 MUST WAIT
+                }
+
+                // ✅ NOW set form values
+                form.setFieldsValue({
+                    ...data,
+                    dob: dobValue,
+                    grade_id: data.grade_id || data.Grade?.id,
+                    section_id: data.section_id || data.Section?.id,
+                    school_id: data.school_id
+                });
+
+                setDOB(dobValue);
+                setAge(parsedAge);
+
+            } catch (error) {
+                message.error("Failed to load student data");
+            }
+        };
+
+        fetchStudentForEdit();
+    }, [id]);
+
 
 
     const fetchAllSchools = async () => {
@@ -80,17 +126,17 @@ const CreateStudenthsc = () => {
         }
     };
 
-    const fetchGroupsBySchoolAndGrade = async (schoolId, gradeId) => {
-        try {
-            const response = await axios.get(
-                `http://localhost:8080/group/getGroupsBySchoolAndGrade/${schoolId}/${gradeId}`
-            );
-            setGroups(response.data.groups || []);
-        } catch (error) {
-            console.error("Error fetching groups:", error);
-            message.error("Failed to fetch groups for this school and grade");
-        }
-    };
+    // const fetchGroupsBySchoolAndGrade = async (schoolId, gradeId) => {
+    //     try {
+    //         const response = await axios.get(
+    //             `http://localhost:8080/group/getGroupsBySchoolAndGrade/${schoolId}/${gradeId}`
+    //         );
+    //         setGroups(response.data.groups || []);
+    //     } catch (error) {
+    //         console.error("Error fetching groups:", error);
+    //         message.error("Failed to fetch groups for this school and grade");
+    //     }
+    // };
 
     const handleSchoolChange = (selectedSchoolId) => {
         form.setFieldsValue({ grade_id: undefined, section_id: undefined });
@@ -118,8 +164,6 @@ const CreateStudenthsc = () => {
             message.error("Failed to fetch grades");
         }
     };
-
-
 
     const validateDOB = (_, value) => {
         const currentYear = new Date().getFullYear();
@@ -225,26 +269,35 @@ const CreateStudenthsc = () => {
     const handleDraft = async () => {
         setLoading(true);
         try {
-            // Validate only current step fields
             const currentStepFields = stepFields.slice(0, currentStep + 1).flat();
             const values = await form.validateFields(currentStepFields);
-            const selectedDOB = values.dob;
-            const ageObj = calculateAge(selectedDOB);
+
+            if (!dob) {
+                message.error("Date of Birth is required");
+                setLoading(false);
+                return;
+            }
+
+            const ageObj = calculateAge(dob);
+
             const payload = {
                 ...values,
-                dob: selectedDOB,
+                dob: dob,
                 age: JSON.stringify(ageObj),
                 school_id: role === "superadmin" ? values.school_id : schoolId,
                 emisNum: values.emisNum ? String(values.emisNum).trim() : "",
                 aadharNumber: values.aadharNumber ? String(values.aadharNumber).trim() : ""
             };
 
-            await axios.post(
-                "http://localhost:8080/studenthsc/createStudenthsc",
-                payload
-            );
-            message.success("Application saved successfully!");
+            const url = isEdit
+                ? `http://localhost:8080/studenthsc/updateStudenthsc/${id}`
+                : "http://localhost:8080/studenthsc/createStudenthsc";
+
+            await axios[isEdit ? "put" : "post"](url, payload);
+
+            message.success(isEdit ? "Draft updated successfully!" : "Draft saved successfully!");
             navigate("/studenthsc");
+
         } catch (error) {
             console.error("Error:", error?.response?.data || error.message || error);
             message.error(error?.response?.data?.error || "Failed to create application");
@@ -265,19 +318,26 @@ const CreateStudenthsc = () => {
                 school_id: role === "superadmin" ? values.school_id : schoolId
             };
 
-            const response = await axios.post(
-                "http://localhost:8080/studenthsc/createStudenthsc",
-                payload
+            const url = isEdit
+                ? `http://localhost:8080/studenthsc/updateStudenthsc/${id}`
+                : "http://localhost:8080/studenthsc/createStudenthsc";
+
+            const response = await axios[isEdit ? "put" : "post"](url, payload);
+            message.success(
+                isEdit
+                    ? "Student updated successfully!"
+                    : `Student created! Number: ${response.data.application.admissionNumber}`
             );
 
-            if (response.status === 201) {
-                message.success(
-                    `Application created! Number: ${response.data.application.applicationNumber}`
-                );
+            if (isEdit) {
+                navigate("/studenthsc");
+            } else {
                 form.resetFields();
             }
+
         } catch (error) {
-            message.error("Failed to create application");
+            console.error("Submit error:", error);
+            message.error(error.response?.data?.error || "Failed to submit student");
         }
         setLoading(false);
     };
@@ -327,7 +387,7 @@ const CreateStudenthsc = () => {
             </Form.Item>
             <Form.Item label="EMIS Number" name="emisNum" rules={[
                 { required: true, message: "Enter EMIS Number!" },
-                { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" }
+                { pattern: /^[0-9]{11}$/, message: "Enter a valid 11-digit number!" }
             ]}>
                 <Input />
             </Form.Item>
@@ -356,7 +416,8 @@ const CreateStudenthsc = () => {
                 <Select
                     placeholder="Select grade"
                     onChange={(gradeId) => {
-                        form.setFieldsValue({ section_id: undefined, group_id: undefined });
+                        form.setFieldsValue({ section_id: undefined });
+
                         const selectedGrade = grades.find(g => g.id === gradeId);
                         setSelectedGradeName(selectedGrade?.grade || '');
 
@@ -364,9 +425,8 @@ const CreateStudenthsc = () => {
                             ? form.getFieldValue("school_id")
                             : user?.school?.id;
 
-                        fetchSections(selectedSchoolId, gradeId);
                         if (selectedSchoolId && gradeId) {
-                            fetchGroupsBySchoolAndGrade(selectedSchoolId, gradeId);
+                            fetchSections(selectedSchoolId, gradeId); // ✅ Only sections now
                         }
                     }}
                 >
@@ -382,14 +442,15 @@ const CreateStudenthsc = () => {
             <Form.Item label="Section" name="section_id" rules={[{ required: true, message: "Please select section!" }]}>
                 <Select placeholder="Select Section">
                     {sections.map(section => (
-                        <Option key={section.id} value={section.id}>
+                        <Select.Option key={section.id} value={section.id}>
                             {section.sectionName}
-                        </Option>
+                        </Select.Option>
                     ))}
                 </Select>
+
             </Form.Item>
 
-            <Form.Item label="Group" name="group_id" rules={[{ required: true, message: "Please select group!" }]}>
+            {/* <Form.Item label="Group" name="group_id" rules={[{ required: true, message: "Please select group!" }]}>
                 <Select placeholder="Select Group">
                     {groups.map(group => (
                         <Option key={group.id} value={group.id}>
@@ -397,7 +458,7 @@ const CreateStudenthsc = () => {
                         </Option>
                     ))}
                 </Select>
-            </Form.Item>
+            </Form.Item> */}
             <Form.Item
                 label="Date of Birth"
                 name="dob"
@@ -607,7 +668,6 @@ const CreateStudenthsc = () => {
                 <Input />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="fatherIncome"
                 label="Father's Annual Income"
                 rules={[
@@ -624,7 +684,6 @@ const CreateStudenthsc = () => {
                     }} />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="motherIncome"
                 label="Mother's Annual Income"
                 rules={[
@@ -691,6 +750,7 @@ const CreateStudenthsc = () => {
             <Form.Item
                 label="Guardian Phone Number"
                 name="guardianNumber"
+                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
             >
                 <Input />
             </Form.Item>
@@ -716,7 +776,6 @@ const CreateStudenthsc = () => {
             </Form.Item>
             <Form.Item
                 name="registrationnumber"
-                style={{ width: 320 }}
                 label="Registration Number"
             >
                 <Input
