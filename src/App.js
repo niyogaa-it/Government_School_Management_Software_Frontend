@@ -70,8 +70,8 @@ const App = () => {
           <Route path="/create-grade" element={<CreateGrade />} />
           <Route path="/group" element={<GroupList />} />
           <Route path="/create-group" element={<CreateGroup />} />
-<Route path="/edit-admin/:id" element={<EditAdmin />} />
-<Route path="/edit-section/:id" element={<EditSection />} />
+          <Route path="/edit-admin/:id" element={<EditAdmin />} />
+          <Route path="/edit-section/:id" element={<EditSection />} />
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={["superadmin", "schooladmin", "teacher"]} />}>
@@ -89,6 +89,7 @@ const App = () => {
           <Route path="/studenthsc" element={<StudentHSCList />} />
           <Route path="/create-studenthsc" element={<CreateStudenthsc />} />
           <Route path="/edit-studentsslc/:id" element={<CreateStudentsslc isEdit={true} />} />
+          <Route path="/edit-studenthsc/:id" element={<CreateStudenthsc isEdit={true} />} />
         </Route>
 
 
