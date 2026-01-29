@@ -34,7 +34,7 @@ const CreateRole = () => {
         setLoading(true);
         try {
             // Check for duplicate roles in the school
-            const roleRes = await axios.get(`http://112.133.196.79:8080/role/getRolesBySchool/${isSuperAdmin ? values.school_id : user.school.id}`);
+            const roleRes = await axios.get(`http://localhost:8080/role/getRolesBySchool/${isSuperAdmin ? values.school_id : user.school.id}`);
             const existingRoles = roleRes.data.roles || [];
 
             const isDuplicate = existingRoles.some(
@@ -48,7 +48,7 @@ const CreateRole = () => {
             }
 
             const payload = { ...values, school_id: isSuperAdmin ? values.school_id : user.school.id };
-            const response = await axios.post("http://112.133.196.79:8080/role/createRole", payload);
+            const response = await axios.post("http://localhost:8080/role/createRole", payload);
             if (response.status === 201) {
                 message.success("Role created successfully!");
                 form.resetFields();
