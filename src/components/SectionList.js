@@ -18,7 +18,7 @@ const SectionList = () => {
       if (role === "superadmin") {
         res = await axios.get("http://localhost:8080/section/getAllSections");
       } else {
-        res = await axios.get(`http://localhost/section/getSectionsBySchool/${user.school.id}`);
+        res = await axios.get(`http://localhost:8080/section/getSectionsBySchool/${user.school.id}`);
       }
       const activeSections = res.data.sections.filter((s) => s.status !== 0);
       setSections(activeSections);
@@ -36,7 +36,7 @@ const SectionList = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this section?")) {
       try {
-        await axios.put(`http://112.133.196.79:8080/section/updateStatus/${id}`, { status: 0 });
+        await axios.put(`http://localhost:8080/section/updateStatus/${id}`, { status: 0 });
         message.success("Section deleted successfully");
         fetchSections();
       } catch {
