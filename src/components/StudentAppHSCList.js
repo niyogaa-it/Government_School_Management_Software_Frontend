@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { message, Modal, Descriptions, Input, Form, Radio, Steps, Select, Button, InputNumber } from "antd";
 import Sidebar from "./Sidebar";
+import { EyeOutlined, EditOutlined, DeleteOutlined, PrinterOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
 const StudentHSCList = () => {
@@ -23,6 +24,12 @@ const StudentHSCList = () => {
   const [dob, setDOB] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedGradeName, setSelectedGradeName] = useState("");
+  const iconSlotStyle = {
+    width: "28px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  };
 
   const statesinindia = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -40,24 +47,24 @@ const StudentHSCList = () => {
     return Promise.resolve();
   };
 
-const calculateTotalAndPercentage = () => {
-  const values = editForm.getFieldsValue([
-    'tamil', 'english', 'maths', 'science', 'social'
-  ]);
+  const calculateTotalAndPercentage = () => {
+    const values = editForm.getFieldsValue([
+      'tamil', 'english', 'maths', 'science', 'social'
+    ]);
 
-  // Sum up all five subjects (parseInt → 0 if empty or invalid)
-  const total = ['tamil', 'english', 'maths', 'science', 'social']
-    .map((subject) => parseInt(values[subject], 10) || 0)
-    .reduce((sum, curr) => sum + curr, 0);
+    // Sum up all five subjects (parseInt → 0 if empty or invalid)
+    const total = ['tamil', 'english', 'maths', 'science', 'social']
+      .map((subject) => parseInt(values[subject], 10) || 0)
+      .reduce((sum, curr) => sum + curr, 0);
 
-  // Average across 5 subjects
-  const percentage = total / 5;
+    // Average across 5 subjects
+    const percentage = total / 5;
 
-  editForm.setFieldsValue({
-    total,
-    percentage: percentage.toFixed(2),
-  });
-};
+    editForm.setFieldsValue({
+      total,
+      percentage: percentage.toFixed(2),
+    });
+  };
 
 
   const validateAccountNumber = (_, value) => {
@@ -145,6 +152,7 @@ const calculateTotalAndPercentage = () => {
       }
 
       const formattedStudenthscs = (response.data.studenthscs || [])
+        .filter(studenthsc => studenthsc.status !== "DELETED") 
         .map(studenthsc => ({
           ...studenthsc,
           Grade: studenthsc.Grade || { grade: "N/A" }
@@ -168,17 +176,8 @@ const calculateTotalAndPercentage = () => {
     }
   };
 
-  const handleEdit = async (id) => {
-    try {
-      const response = await axios.get(`http://localhost:8080/studenthsc/getStudenthscById/${id}`);
-      const data = response.data.application;
-      setEditFormData(data);
-      editForm.setFieldsValue(data);
-      calculateTotalAndPercentage();
-      setIsEditModalVisible(true);
-    } catch (error) {
-      message.error("Failed to load application for editing");
-    }
+  const handleEdit = (id) => {
+    navigate(`/createstudenthsc/${id}`);
   };
 
   const handleUpdate = async () => {
@@ -204,6 +203,24 @@ const calculateTotalAndPercentage = () => {
     }
   };
 
+const handleDelete = async (id, name) => {
+  const confirmDelete = window.confirm(
+    `Are you sure you want to remove application of ${name}?`
+  );
+  if (!confirmDelete) return;
+
+  try {
+    await axios.put(`http://localhost:8080/studenthsc/updateStatus/${id}`);
+
+    message.success("Application removed successfully");
+
+    // Instantly update UI
+    setStudenthscs(prev => prev.filter(student => student.id !== id));
+
+  } catch (error) {
+    message.error("Failed to remove application");
+  }
+};
 
 
   const formatAge = (age) => {
@@ -211,6 +228,252 @@ const calculateTotalAndPercentage = () => {
     const { years = 0, months = 0, days = 0 } = age;
     return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}, ${days} day${days !== 1 ? 's' : ''}`;
   };
+
+  // Function to handle print click
+  const handlePrintClick = (application) => {
+    if (!application) {
+      message.error("No application data found for printing.");
+      return;
+    }
+
+    const printContent = preparePrintContent(application);
+    const printWindow = window.open('', '_blank');
+    printWindow.document.title = 'Application Details';
+    printWindow.document.write(printContent);
+    printWindow.print();
+  };
+
+  // Function to prepare the content for printing
+  const preparePrintContent = (selectedApplication) => {
+    // Here you format the selectedApplication data as per your print layout
+    const printContent = `
+		<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 8px;
+        text-align: left;
+    }
+</style>
+		<h2>General Information</h2>
+		<table border="1" cellpadding="5" cellspacing="0">
+		<tr>
+			<td><strong>Admission Number:</strong></td>
+			<td>${selectedApplication.admissionNumber}</td>
+		</tr>
+    <tr>
+			<td><strong>School Name:</strong></td>
+			<td>${selectedApplication.School?.name}</td>
+		</tr>
+		<tr>
+			<td><strong>Academic Year:</strong></td>
+			<td>${selectedApplication.academicYear}</td>
+		</tr>
+		<tr>
+			<td><strong>EMIS Number:</strong></td>
+			<td>${selectedApplication.emisNum}</td>
+		</tr>
+		<tr>
+			<td><strong>Aadhaar Number:</strong></td>
+			<td>${selectedApplication.aadharNumber}</td>
+		</tr>
+	</table>
+	<h2>Student Information</h2>
+	<table border="1" cellpadding="5" cellspacing="0">
+		<tr>
+			<td><strong>Name:</strong></td>
+			<td>${selectedApplication.name}</td>
+		</tr>
+		<tr>
+			<td><strong>Gender:</strong></td>
+			<td>${selectedApplication.gender}</td>
+		</tr>
+		<tr>
+			<td><strong>Grade:</strong></td>
+			<td>${selectedApplication.grade}</td>
+		</tr>
+		<tr>
+  <td><strong>Section:</strong></td>
+  <td>${selectedApplication.Section?.sectionName || "N/A"}</td>
+</tr>
+		<tr>
+        <td><strong>Date of Birth:</strong></td>
+        <td>${selectedApplication.dob}</td>
+    </tr>
+		<tr>
+        <td><strong>Age:</strong></td>
+        <td>${selectedApplication.age}</td>
+    </tr>
+    <tr>
+        <td><strong>Nationality:</strong></td>
+        <td>${selectedApplication.nationality}</td>
+    </tr>
+    <tr>
+        <td><strong>State:</strong></td>
+        <td>${selectedApplication.state}</td>
+    </tr>
+    <tr>
+        <td><strong>Mother Tongue:</strong></td>
+        <td>${selectedApplication.motherTongue}</td>
+    </tr>
+        <tr>
+        <td><strong>Religion:</strong></td>
+        <td>${selectedApplication.religion}</td>
+    </tr>
+    <tr>
+        <td><strong>Home Town:</strong></td>
+        <td>${selectedApplication.hometown}</td>
+    </tr>
+    <tr>
+        <td><strong>Community:</strong></td>
+        <td>${selectedApplication.community}</td>
+    </tr>
+    <tr>
+        <td><strong>Is the student from scheduled tribe community?</strong></td>
+        <td>${selectedApplication.tribecommunity}</td>
+    </tr>
+    <tr>
+        <td><strong>Is the caste entitled to get ex-gratia salary?</strong></td>
+        <td>${selectedApplication.exgratiasalary}</td>
+    </tr>
+    <tr>
+        <td><strong>Is the student a convert from Hinduism to Christianity?</strong></td>
+        <td>${selectedApplication.religionchanging}</td>
+    </tr>
+    <tr>
+        <td><strong>Living with whom:</strong></td>
+        <td>${selectedApplication.living}</td>
+    </tr>
+    <tr>
+        <td><strong>Is the student for chicken pox? Is scar Available?</strong></td>
+        <td>${selectedApplication.vaccinated}</td>
+    </tr>
+	<tr>
+	<td><strong>Identification Marks:</strong></td>
+	<td>${selectedApplication.identificationmarks}</td>
+</tr>
+<tr>
+	<td><strong>Blood Group:</strong></td>
+	<td>${selectedApplication.bloodGroup}</td>
+</tr>
+<tr>
+	<td><strong>Is the student Physically challenged?</strong></td>
+	<td>${selectedApplication.physical}</td>
+</tr>
+<tr>
+	<td><strong>If Physically challenged, specify:</strong></td>
+	<td>${selectedApplication.physicalDetails}</td>
+</tr>
+</table>
+<h2>Parent Details</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+    <tr>
+        <td><strong>Father's Name:</strong></td>
+        <td>${selectedApplication.fatherName}</td>
+    </tr>
+    <tr>
+        <td><strong>Mother's Name:</strong></td>
+        <td>${selectedApplication.motherName}</td>
+    </tr>
+        <tr>
+        <td><strong>Father's Occupation:</strong></td>
+        <td>${selectedApplication.fatherOccupation}</td>
+    </tr>
+        <tr>
+        <td><strong>Mother's Occupation:</strong></td>
+        <td>${selectedApplication.motherOccupation}</td>
+    </tr>
+    <tr>
+        <td><strong>Father's Annual Income:</strong></td>
+        <td>${selectedApplication.fatherIncome}</td>
+    </tr>
+
+    <tr>
+        <td><strong>Mother's Annual Income:</strong></td>
+        <td>${selectedApplication.motherIncome}</td>
+    </tr>
+    <tr>
+        <td><strong>Address:</strong></td>
+        <td>${selectedApplication.address}</td>
+    </tr>
+    <tr>
+        <td><strong>Pincode:</strong></td>
+        <td>${selectedApplication.pincode}</td>
+    </tr>
+    <tr>
+        <td><strong>Telephone Number:</strong></td>
+        <td>${selectedApplication.telephoneNumber}</td>
+    </tr>
+	<td><strong>Mobile Number:</strong></td>
+	<td>${selectedApplication.mobileNumber}</td>
+</tr>
+<tr>
+	<td><strong>Guardian's Name:</strong></td>
+	<td>${selectedApplication.guardianName}</td>
+</tr>
+<tr>
+	<td><strong>Guardian's Occupation:</strong></td>
+	<td>${selectedApplication.guardianOccupation}</td>
+</tr>
+<tr>
+	<td><strong>Guardian's Address:</strong></td>
+	<td>${selectedApplication.guardianAddress}</td>
+</tr>
+<tr>
+	<td><strong>Guardian Phone Number:</strong></td>
+	<td>${selectedApplication.guardianNumber}</td>
+</tr>
+<tr>
+	<td><strong>Is parent consent letter attached?</strong></td>
+	<td>${selectedApplication.parentconsentform}</td>
+</tr>
+</table>
+	<h2>Academic Details</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+   <tr>
+	<td><strong>Student's Academic History</strong></td>
+	<td>${selectedApplication.academicHistory}</td>
+</tr>
+<tr>
+	<td><strong>Has He/ She passed in the last class studied?</strong></td>
+	<td>${selectedApplication.passorfail}</td>
+</tr>
+<tr>
+	<td><strong>Is T.C/ E.S.L.C/ Record sheet submitted?</strong></td>
+	<td>${selectedApplication.tceslc}</td>
+</tr>
+<tr>
+	<td><strong>First Language Preference</strong></td>
+	<td>${selectedApplication.firstLanguage}</td>
+</tr>
+</table>
+	<h2>Bank Details</h2>
+<table border="1" cellpadding="5" cellspacing="0">
+<tr>
+        <td><strong>Bank Name:</strong></td>
+        <td>${selectedApplication.bankname}</td>
+    </tr>
+     <tr>
+        <td><strong>Branch Name:</strong></td>
+        <td>${selectedApplication.branchname}</td>
+    </tr>
+    <tr>
+        <td><strong>Account Number:</strong></td>
+        <td>${selectedApplication.accountnumber}</td>
+    </tr>
+    
+    <tr>
+        <td><strong>IFSC Code:</strong></td>
+        <td>${selectedApplication.ifsccode}</td>
+    </tr>
+</table>
+	`;
+    return printContent;
+  }
+
 
   return (
     <div style={{ display: "flex" }}>
@@ -227,22 +490,22 @@ const calculateTotalAndPercentage = () => {
           <table className="table table-bordered table-striped" style={{ width: '100%' }}>
             <thead className="table-dark">
               <tr>
-                <th>ID</th>
-                <th>Admission Number</th>
+                <th>S.No</th>
+                <th>Admission No</th>
                 <th>School</th>
                 <th>Academic Year</th>
                 <th>Date Of Join</th>
                 <th>Name</th>
                 <th>Gender</th>
                 <th>Grade</th>
-                <th>Action</th> {/* You were missing this column header */}
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {studenthscs.length > 0 ? (
-                studenthscs.map((student) => (
+                studenthscs.map((student, index) => (
                   <tr key={student.id}>
-                    <td>{student.id}</td>
+                    <td>{index + 1}</td>
                     <td>{student.admissionNumber}</td>
                     <td>{role === "superadmin" ? student.School?.name : user.school?.name}</td>
                     <td>{student.academicYear}</td>
@@ -251,34 +514,48 @@ const calculateTotalAndPercentage = () => {
                     <td>{student.gender}</td>
                     <td>{student.Grade?.grade || "N/A"}</td>
                     <td style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: "10px" }}>
-                        <button
-                          onClick={() => handleView(student.id)} // ✅ Fixed "app.id" to "student.id"
-                          style={{
-                            backgroundColor: "#003366",
-                            color: "white",
-                            padding: "6px 12px",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer"
-                          }}
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleEdit(student.id)}
-                          style={{
-                            backgroundColor: "#ffc107",
-                            color: "black",
-                            padding: "6px 12px",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer"
-                          }}
-                        >
-                          Edit
-                        </button>
-                      </div>
+                      <td style={{ textAlign: "center" }}>
+                        <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+
+                          {/* VIEW */}
+                          <div style={iconSlotStyle}>
+                            <EyeOutlined
+                              title="View Student"
+                              style={{ fontSize: 18, color: "#003366", cursor: "pointer" }}
+                              onClick={() => handleView(student.id)}
+                            />
+                          </div>
+
+                          {/* EDIT */}
+                          <div style={iconSlotStyle}>
+                            <EditOutlined
+                              title="Edit Application"
+                              style={{ fontSize: 18, color: "#1890ff", cursor: "pointer" }}
+                              onClick={() => navigate(`/edit-studenthsc/${student.id}`)}
+                            />
+                          </div>
+
+                          {/* PRINT */}
+                          <div style={iconSlotStyle}>
+                            <PrinterOutlined
+                              title="Print Student Details"
+                              style={{ fontSize: 18, color: "rgb(194, 92, 32)", cursor: "pointer" }}
+                              onClick={() => handlePrintClick(student)}
+                            />
+                          </div>
+
+                          {/* DELETE (superadmin only, but space always reserved) */}
+                          <div style={iconSlotStyle}>
+                            {role === "superadmin" && (
+                              <DeleteOutlined
+                                title="Remove Application"
+                                style={{ fontSize: 18, color: "#e21216", cursor: "pointer" }}
+                                onClick={() => handleDelete(student.id, student.name)}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </td>
                     </td>
                   </tr>
                 ))
@@ -294,10 +571,10 @@ const calculateTotalAndPercentage = () => {
       {isModalVisible && selectedApplication && (
         <Modal
           title="Application Details"
-          visible={isModalVisible}
+          open={isModalVisible}
           onCancel={() => setIsModalVisible(false)}
           footer={null}
-          width={1100}
+          width={1200}
         >
           <Descriptions bordered column={2}>
             <Descriptions.Item label="Admission Number">
@@ -323,6 +600,9 @@ const calculateTotalAndPercentage = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Grade">
               {selectedApplication.Grade?.grade || "N/A"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Section">
+              {selectedApplication.Section?.sectionName || "N/A"}
             </Descriptions.Item>
             <Descriptions.Item label="Date of Birth">
               {selectedApplication.dob}
