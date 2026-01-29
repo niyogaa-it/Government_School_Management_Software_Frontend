@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { message, Modal, Descriptions } from "antd";
 import Sidebar from "./Sidebar";
+import { EyeOutlined, EditOutlined, CheckCircleOutlined, DeleteOutlined } from "@ant-design/icons";
 
 const ApplicationHSCList = () => {
   const [applicationhscs, setApplicationhscs] = useState([]);
@@ -52,7 +53,7 @@ const ApplicationHSCList = () => {
       // Step 1
       ["academicYear", "school_id", "emisNum", "aadharNumber"],
       // Step 2
-      ["name", "gender", "grade_id", "dob", "age", "nationality", "state", "motherTongue", "community"],
+      ["name", "gender", "grade_id", "dob", "age", "nationality", "state", "motherTongue", "community", "bloodGroup"],
       // Step 3
       ["fatherName", "motherName", "fatherOccupation", "motherOccupation", "fatherIncome", "motherIncome", "address", "pincode", "mobileNumber"],
       // Step 4
@@ -95,7 +96,11 @@ const ApplicationHSCList = () => {
 
   const handleView = async (id) => {
     try {
-      const response = await axios.get(`http://localhost:8080/applicationhsc/getApplicationhscById/${id}`);
+      console.log("Viewing Application ID:", id); 
+      const response = await axios.get(
+        `http://localhost:8080/applicationhsc/getApplicationhscById/${id}`
+      );
+
       setSelectedApplication(response.data.application);
       setIsModalVisible(true);
     } catch (error) {
@@ -110,6 +115,32 @@ const ApplicationHSCList = () => {
     return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}, ${days} day${days !== 1 ? 's' : ''}`;
   };
 
+  const handleDelete = async (id, name) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to remove application of ${name}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await axios.put(
+        `http://localhost:8080/applicationhsc/updateStatus/${id}`
+      );
+
+      message.success("Application removed successfully");
+
+      // Refresh list → S.No auto reorders
+      fetchApplicationhsc();
+    } catch (error) {
+      message.error("Failed to remove application");
+    }
+  };
+
+  const iconSlotStyle = {
+    width: "28px",          // fixed width for each icon
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  };
 
   return (
     <div style={{ display: "flex" }}>
@@ -120,32 +151,32 @@ const ApplicationHSCList = () => {
           onClick={() => navigate("/create-applicationhsc")}
           className="btn btn-primary mb-3"
         >
-          Create Application
+          Create HSC Application
         </button>
         <div className="table-responsive">
           <table className="table table-bordered table-striped">
             <thead className="table-dark">
               <tr>
-                <th>ID</th>
-                <th>Application Number</th>
+                <th>S.No</th>
+                <th>Application No</th>
                 <th>School</th>
                 <th>Academic Year</th>
                 <th>Name</th>
                 <th>Gender</th>
                 <th>Grade</th>
-                <th>Progress</th> {/* NEW */}
-                <th>Action</th> {/* NEW */}
+                <th>Progress</th>
+                <th style={{ textAlign: "center" }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {applicationhscs.length > 0 ? (
-                applicationhscs.map((app) => {
+                applicationhscs.map((app, index) => {
                   const progress = calculateProgress(app);
                   return (
                     <tr key={app.id}>
-                      <td>{app.id}</td>
+                      <td>{index + 1}</td>
                       <td>{app.applicationNumber}</td>
-                      <td>{role === "superadmin" ? app.School?.name || "N/A" : user.school?.name || "N/A"}</td>
+                      <td>{role === "superadmin" ? app.School?.name : user.school?.name}</td>
                       <td>{app.academicYear}</td>
                       <td>{app.name}</td>
                       <td>{app.gender}</td>
@@ -155,60 +186,55 @@ const ApplicationHSCList = () => {
                           width: "100px",
                           accentColor:
                             progress === 100
-                              ? "#237804"       // Dark Green
+                              ? "#195304"        // Dark Green
                               : progress >= 80
-                                ? "#52c41a"       // Light Green
+                                ? "#7de24a"       // Light Green
                                 : progress >= 60
-                                  ? "#fadb14"       // Yellow
+                                  ? "#f7de40"          // Yellow
                                   : progress >= 40
-                                    ? "#fa8c16"       // Orange
-                                    : "#ff4d4f"        // Red
+                                    ? "#ff9b31"        // Orange
+                                    : "#f86b6e"       // Red
                         }} />
                         <span style={{ marginLeft: 10 }}>{progress}%</span>
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <div style={{ display: "inline-flex", gap: "10px" }}>
-                          {progress === 100 && role === "superadmin" && (
-                            <button
-                              onClick={() => handleAdmit(app)}
-                              style={{
-                                backgroundColor: "#52c41a",
-                                color: "white",
-                                padding: "6px 12px",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer"
-                              }}
-                            >
-                              Admit
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleView(app.id)}
-                            style={{
-                              backgroundColor: "#003366", // Dark Blue
-                              color: "white",
-                              padding: "6px 12px",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer"
-                            }}
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => navigate(`/edit-applicationhsc/${app.id}`)}
-                            style={{
-                              backgroundColor: "#1890ff",
-                              color: "white",
-                              padding: "6px 12px",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer"
-                            }}
-                          >
-                            Edit
-                          </button>
+                        <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                          {/* ADMIT SLOT (always reserved) */}
+                          <div style={iconSlotStyle}>
+                            {progress === 100 && role === "superadmin" && (
+                              <CheckCircleOutlined
+                                title="Admit Student"
+                                style={{ fontSize: 20, color: "#52c41a", cursor: "pointer" }}
+                                onClick={() => handleAdmit(app)}
+                              />
+                            )}
+                          </div>
+                          {/* VIEW */}
+                          <div style={iconSlotStyle}>
+                            <EyeOutlined
+                              title="View Application"
+                              style={{ fontSize: 18, color: "#003366", cursor: "pointer" }}
+                              onClick={() => handleView(app.id)}
+                            />
+                          </div>
+                          {/* EDIT */}
+                          <div style={iconSlotStyle}>
+                            <EditOutlined
+                              title="Edit Application"
+                              style={{ fontSize: 18, color: "#1890ff", cursor: "pointer" }}
+                              onClick={() => navigate(`/edit-applicationhsc/${app.id}`)}
+                            />
+                          </div>
+                          {/* DELETE (superadmin only, but space always reserved) */}
+                          <div style={iconSlotStyle}>
+                            {role === "superadmin" && (
+                              <DeleteOutlined
+                                title="Remove Application"
+                                style={{ fontSize: 18, color: "#e21216", cursor: "pointer" }}
+                                onClick={() => handleDelete(app.id, app.name)}
+                              />
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -225,10 +251,10 @@ const ApplicationHSCList = () => {
         {isModalVisible && selectedApplication && (
           <Modal
             title="Application Details"
-            visible={isModalVisible}
+            open={isModalVisible}
             onCancel={() => setIsModalVisible(false)}
             footer={null}
-            width={1100}
+            width={1200}
           >
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Application Number">
@@ -363,17 +389,11 @@ const ApplicationHSCList = () => {
               <Descriptions.Item label="Social Science">
                 {selectedApplication.social}
               </Descriptions.Item>
-              <Descriptions.Item label="Tamil">
-                {selectedApplication.tamil}
-              </Descriptions.Item>
               <Descriptions.Item label="Total">
                 {selectedApplication.total}
               </Descriptions.Item>
               <Descriptions.Item label="Percentage">
                 {selectedApplication.percentage}
-              </Descriptions.Item>
-              <Descriptions.Item label="First Language Preference">
-                {selectedApplication.firstLanguage}
               </Descriptions.Item>
               <Descriptions.Item label="Reason for Discontinuation/ Termination">
                 {selectedApplication.terminationreason}
