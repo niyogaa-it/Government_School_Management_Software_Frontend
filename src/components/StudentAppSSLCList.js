@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { message, Modal, Descriptions, Form, Input, Radio, Steps, Select, Button } from "antd";
 import Sidebar from "./Sidebar";
+import { EyeOutlined, EditOutlined, DeleteOutlined, PrinterOutlined } from "@ant-design/icons";
+
 
 const { Option } = Select;
 
@@ -24,6 +26,13 @@ const StudentSSLCList = () => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [sections, setSections] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const iconSlotStyle = {
+    width: "28px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  };
 
   useEffect(() => {
     fetchStudentsslcs();
@@ -111,46 +120,18 @@ const StudentSSLCList = () => {
     return Promise.resolve();
   };
 
-  const handleEdit = async (id) => {
-    try {
-      const response = await axios.get(`http://localhost:8080/studentsslc/getStudentsslcById/${id}`);
-      const data = response.data.application;
-
-      setEditFormData(data);
-      editForm.setFieldsValue(data);
-
-      if (data.grade_id && data.school_id) {
-        fetchSectionsBySchoolAndGrade(data.school_id, data.grade_id);
-      }
-
-      if (data.dob) {
-        const age = calculateAge(data.dob);
-        setEditingStudentPageData((prev) => ({
-          ...prev,
-          dob: data.dob,
-          age
-        }));
-      }
-
-      // ✅ Fetch grades using school_id from the application
-      if (data.school_id) {
-        fetchGrades(data.school_id);
-      }
-
-      setIsEditModalVisible(true);
-      setCurrentStep(0);
-    } catch (error) {
-      message.error("Failed to load application for editing");
-    }
+  const handleEdit = (id) => {
+    navigate(`/createstudentsslc/${id}`);
   };
-
 
   const fetchStudentsslcs = async () => {
     try {
       let response;
 
       if (role === "superadmin") {
-        response = await axios.get("http://localhost:8080/studentsslc/getAllStudentsslc");
+        response = await axios.get(
+          "http://localhost:8080/studentsslc/getAllStudentsslc"
+        );
       } else {
         if (!schoolId) {
           console.error("School ID is missing");
@@ -162,18 +143,21 @@ const StudentSSLCList = () => {
       }
 
       const formattedStudentsslcs = (response.data.studentsslcs || [])
+        .filter(student => student.status !== "Removed")
         .map(studentsslc => ({
           ...studentsslc,
-          Grade: studentsslc.Grade || { grade: "N/A" }
+          Grade: studentsslc.Grade || { grade: "N/A" },
+          Section: studentsslc.Section || { sectionName: "N/A" }
         }));
 
       setStudentsslcs(formattedStudentsslcs);
     } catch (error) {
       console.error("Error fetching Students:", error);
-      message.error(error.response?.data?.details || "Failed to fetch students");
+      message.error(
+        error.response?.data?.details || "Failed to fetch students"
+      );
     }
   };
-
   const validateAccountNumber = (_, value) => {
     if (!value || !/^\d{9,17}$/.test(value)) {
       return Promise.reject("Account number must be 9 to 17 digits!");
@@ -203,15 +187,17 @@ const StudentSSLCList = () => {
   const handleUpdate = async () => {
     try {
       const values = await editForm.validateFields();
-      await axios.put(`http://localhost:8080/studentsslc/updateStudentsslc/${editFormData.id}`, {
-        ...editFormData,
-        ...values
-      });
-      message.success("Updated successfully");
+
+      await axios.put(
+        `http://localhost:8080/studentsslc/updateStudentsslc/${editFormData.id}`,
+        values
+      );
+
+      message.success("Student updated successfully");
       setIsEditModalVisible(false);
-      fetchStudentsslcs(); // refresh data
+      fetchStudentsslcs();
     } catch (err) {
-      message.error("Failed to update");
+      message.error("Update failed");
     }
   };
 
@@ -241,6 +227,26 @@ const StudentSSLCList = () => {
     printWindow.document.title = 'Application Details';
     printWindow.document.write(printContent);
     printWindow.print();
+  };
+
+  const handleDelete = async (id, name) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to remove application of ${name}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await axios.put(
+        `http://localhost:8080/studentsslc/updateStatus/${id}`
+      );
+
+      message.success("Application removed successfully");
+
+      // Refresh list → S.No auto reorders
+      fetchStudentsslcs();
+    } catch (error) {
+      message.error("Failed to remove application");
+    }
   };
 
 
@@ -279,7 +285,7 @@ const StudentSSLCList = () => {
 		</tr>
 		<tr>
 			<td><strong>Aadhaar Number:</strong></td>
-			<td>${selectedApplication.aadhaarNumber}</td>
+			<td>${selectedApplication.aadharNumber}</td>
 		</tr>
 	</table>
 	<h2>Student Information</h2>
@@ -476,6 +482,8 @@ const StudentSSLCList = () => {
     return printContent;
   }
 
+
+
   return (
     <div style={{ display: "flex" }}>
       <Sidebar />
@@ -491,8 +499,8 @@ const StudentSSLCList = () => {
           <table className="table table-bordered table-striped">
             <thead className="table-dark">
               <tr>
-                <th>ID</th>
-                <th>Admission Number</th>
+                <th>S.No</th>
+                <th>Admission No</th>
                 <th>School</th>
                 <th>Academic Year</th>
                 <th>Date Of Join</th>
@@ -505,9 +513,9 @@ const StudentSSLCList = () => {
             </thead>
             <tbody>
               {studentsslcs.length > 0 ? (
-                studentsslcs.map((student) => (
+                studentsslcs.map((student, index) => (
                   <tr key={student.id}>
-                    <td>{student.id}</td>
+                    <td>{index + 1}</td>
                     <td>{student.admissionNumber}</td>
                     <td>{role === "superadmin" ? student.School?.name : user.school?.name}</td>
                     <td>{student.academicYear}</td>
@@ -517,48 +525,45 @@ const StudentSSLCList = () => {
                     <td>{student.Grade?.grade || "N/A"}</td>
                     <td>{student.Section?.sectionName || "N/A"}</td>
                     <td style={{ textAlign: "center" }}>
-                      <div style={{ display: "inline-flex", gap: "10px" }}>
-                        <button
-                          onClick={() => handleView(student.id)}
-                          style={{
-                            backgroundColor: "#003366",
-                            color: "white",
-                            padding: "6px 12px",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer"
-                          }}
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleEdit(student.id)}
-                          style={{
-                            backgroundColor: "#ffc107",
-                            color: "black",
-                            padding: "6px 12px",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer"
-                          }}
-                        >
-                          Edit
-                        </button>
-                          <td>
-                      <Button
-                        onClick={() => handlePrintClick(student)}
-                          style={{
-                            backgroundColor: "rgb(194, 92, 32)",
-                            color: "white",
-                            padding: "6px 12px",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer"
-                          }}
-                      >
-                        Print
-                      </Button>
-                    </td>
+                      <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+
+                        {/* VIEW */}
+                        <div style={iconSlotStyle}>
+                          <EyeOutlined
+                            title="View Student"
+                            style={{ fontSize: 18, color: "#003366", cursor: "pointer" }}
+                            onClick={() => handleView(student.id)}
+                          />
+                        </div>
+
+                        {/* EDIT */}
+                        <div style={iconSlotStyle}>
+                          <EditOutlined
+                            title="Edit Application"
+                            style={{ fontSize: 18, color: "#1890ff", cursor: "pointer" }}
+                            onClick={() => navigate(`/edit-studentsslc/${student.id}`)}
+                          />
+                        </div>
+
+                        {/* PRINT */}
+                        <div style={iconSlotStyle}>
+                          <PrinterOutlined
+                            title="Print Student Details"
+                            style={{ fontSize: 18, color: "rgb(194, 92, 32)", cursor: "pointer" }}
+                            onClick={() => handlePrintClick(student)}
+                          />
+                        </div>
+
+                        {/* DELETE (superadmin only, but space always reserved) */}
+                        <div style={iconSlotStyle}>
+                          {role === "superadmin" && (
+                            <DeleteOutlined
+                              title="Remove Application"
+                              style={{ fontSize: 18, color: "#e21216", cursor: "pointer" }}
+                              onClick={() => handleDelete(student.id, student.name)}
+                            />
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -574,10 +579,10 @@ const StudentSSLCList = () => {
         {isModalVisible && selectedApplication && (
           <Modal
             title="Application Details"
-            visible={isModalVisible}
+            open={isModalVisible}
             onCancel={() => setIsModalVisible(false)}
             footer={null}
-            width={1100}
+            width={1200}
           >
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Admission Number">
@@ -816,41 +821,35 @@ const StudentSSLCList = () => {
                 <Form.Item
                   label="Grade"
                   name="grade_id"
-                  rules={[{ required: true, message: "Please select grade!" }]}
+                  rules={[{ required: true }]}
                 >
                   <Select
-                    placeholder="Select grade"
                     onChange={(value) => {
-                      const selected = grades.find(g => g.id === value);
-                      setSelectedGradeName(selected?.grade || '');
-
-                      fetchSectionsBySchoolAndGrade(schoolId, value); // <-- fetch sections
+                      fetchSectionsBySchoolAndGrade(schoolId, value);
+                      editForm.setFieldsValue({ section_id: null });
                     }}
                   >
-                    {grades
-                      .filter(grade =>
-                        ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"].includes(grade.grade.toUpperCase())
-                      )
-                      .map(grade => (
-                        <Select.Option key={grade.id} value={grade.id}>
-                          {grade.grade}
-                        </Select.Option>
-                      ))}
+                    {grades.map(g => (
+                      <Select.Option key={g.id} value={g.id}>
+                        {g.grade}
+                      </Select.Option>
+                    ))}
                   </Select>
                 </Form.Item>
                 <Form.Item
                   label="Section"
                   name="section_id"
-                  rules={[{ required: true, message: "Please select section!" }]}
+                  rules={[{ required: true }]}
                 >
-                  <Select placeholder="Select section">
-                    {sections.map(section => (
-                      <Select.Option key={section.id} value={section.id}>
-                        {section.sectionName}
+                  <Select>
+                    {sections.map(sec => (
+                      <Select.Option key={sec.id} value={sec.id}>
+                        {sec.sectionName}
                       </Select.Option>
                     ))}
                   </Select>
                 </Form.Item>
+
                 <Form.Item
                   label="Date of Birth"
                   name="dob"
@@ -1289,6 +1288,7 @@ const StudentSSLCList = () => {
     </div>
   );
 };
+
 
 
 export default StudentSSLCList;
