@@ -1,7 +1,8 @@
+import { useNavigate, useParams } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Button, Form, Input, Spin, Typography, message, Select, Radio, Steps, Card, Row, Col, Progress } from 'antd';
-import { useNavigate } from "react-router-dom";
+
 
 const { Title } = Typography;
 const { Step } = Steps;
@@ -13,13 +14,14 @@ const CreateStudentsslc = () => {
     const [loading, setLoading] = useState(false);
     const [grades, setGrades] = useState([]);
     const [sections, setSections] = useState([]);
+    const { id } = useParams();
+    const isEdit = Boolean(id);
     const [currentStep, setCurrentStep] = useState(0);
     const [progressColor, setProgressColor] = useState("#ff4d4f");
     const user = JSON.parse(localStorage.getItem("user"));
     const schoolId = user?.school?.id;
     const [schools, setSchools] = useState([]);
     const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
-
     const navigate = useNavigate();
     const steps = [
         'Academic Details',
@@ -37,7 +39,7 @@ const CreateStudentsslc = () => {
 
     const stepFields = [
         ['school_id', 'academicYear', 'dateofjoin', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'dob', 'age', 'nationality', 'state', 'motherTongue', 'hometown', 'community',
+        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'motherTongue', 'hometown', 'religion', 'community',
             'tribecommunity', 'exgratiasalary', 'religionchanging', 'living', 'vaccinated', 'identificationmarks', 'bloodGroup', 'physical', 'physicalDetails'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
@@ -51,8 +53,6 @@ const CreateStudentsslc = () => {
         } else if (schoolId) {
             fetchGrades(schoolId);
         }
-
-        // Set initial academic history
         form.setFieldsValue({ academicHistory });
     }, [role, schoolId, academicHistory]);
 
@@ -61,6 +61,54 @@ const CreateStudentsslc = () => {
         const colors = ["#ff4d4f", "#ffa940", "#faad14", "#52c41a"];
         setProgressColor(colors[currentStep]);
     }, [currentStep]);
+
+    useEffect(() => {
+        if (!id) return;
+
+        const fetchStudentForEdit = async () => {
+            try {
+                const res = await axios.get(
+                    `http://localhost:8080/studentsslc/getStudentsslcById/${id}`
+                );
+
+                const data = res.data.application;
+
+                const dobValue = data.dob ? data.dob.split("T")[0] : "";
+                const parsedAge =
+                    typeof data.age === "string"
+                        ? JSON.parse(data.age)
+                        : calculateAge(dobValue);
+
+                // ✅ set FORM values
+                form.setFieldsValue({
+                    ...data,
+                    dob: dobValue,
+                    grade_id: data.grade_id || data.Grade?.id,
+                    section_id: data.section_id || data.Section?.id,
+                    school_id: data.school_id
+                });
+
+                // ✅ set STATE values (THIS WAS MISSING)
+                setDOB(dobValue);
+                setAge(parsedAge);
+
+                // Load dependent dropdowns
+                if (data.school_id) {
+                    await fetchGrades(data.school_id);
+                }
+
+                if (data.school_id && data.grade_id) {
+                    fetchSectionsBySchoolAndGrade(data.school_id, data.grade_id);
+                }
+
+            } catch (error) {
+                message.error("Failed to load student data");
+            }
+        };
+
+        fetchStudentForEdit();
+    }, [id]);
+
 
     const handleSchoolChange = (selectedSchoolId) => {
         // Reset grade and section fields
@@ -94,12 +142,15 @@ const CreateStudentsslc = () => {
     };
 
     const fetchGrades = async (selectedSchoolId) => {
+        if (!selectedSchoolId) return;
+
         try {
-            const response = await axios.get(
+            const res = await axios.get(
                 `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
             );
-            setGrades(response.data.grades || []);
+            setGrades(res.data.grades || []);
         } catch (error) {
+            console.error("Error fetching grades:", error);
             message.error("Failed to fetch grades");
         }
     };
@@ -117,57 +168,38 @@ const CreateStudentsslc = () => {
     };
 
     const validateDOB = (_, value) => {
+        const gradeId = form.getFieldValue("grade_id");
+
+        if (!value || !gradeId) {
+            return Promise.reject("Please select grade before DOB");
+        }
+
+        const grade = grades.find(g => g.id === gradeId);
+        const gradeName = grade?.grade;
+
+        if (!gradeName) return Promise.resolve();
+
         const currentYear = new Date().getFullYear();
         let minYear, maxYear;
 
-        switch (selectedGradeName) {
-            case 'I':
-                minYear = currentYear - 8;
-                maxYear = currentYear - 5;
-                break;
-            case 'II':
-                minYear = currentYear - 9;
-                maxYear = currentYear - 6;
-                break;
-            case 'III':
-                minYear = currentYear - 10;
-                maxYear = currentYear - 7;
-                break;
-            case 'IV':
-                minYear = currentYear - 11;
-                maxYear = currentYear - 8;
-                break;
-            case 'V':
-                minYear = currentYear - 12;
-                maxYear = currentYear - 9;
-                break;
-            case 'VI':
-                minYear = currentYear - 13;
-                maxYear = currentYear - 10;
-                break;
-            case 'VII':
-                minYear = currentYear - 14;
-                maxYear = currentYear - 11;
-                break;
-            case 'VIII':
-                minYear = currentYear - 15;
-                maxYear = currentYear - 12;
-                break;
-            case 'IX':
-                minYear = currentYear - 16;
-                maxYear = currentYear - 13;
-                break;
-            case 'X':
-                minYear = currentYear - 17;
-                maxYear = currentYear - 14;
-                break;
+        switch (gradeName) {
+            case 'I': minYear = currentYear - 8; maxYear = currentYear - 5; break;
+            case 'II': minYear = currentYear - 9; maxYear = currentYear - 6; break;
+            case 'III': minYear = currentYear - 10; maxYear = currentYear - 7; break;
+            case 'IV': minYear = currentYear - 11; maxYear = currentYear - 8; break;
+            case 'V': minYear = currentYear - 12; maxYear = currentYear - 9; break;
+            case 'VI': minYear = currentYear - 13; maxYear = currentYear - 10; break;
+            case 'VII': minYear = currentYear - 14; maxYear = currentYear - 11; break;
+            case 'VIII': minYear = currentYear - 15; maxYear = currentYear - 12; break;
+            case 'IX': minYear = currentYear - 16; maxYear = currentYear - 13; break;
+            case 'X': minYear = currentYear - 17; maxYear = currentYear - 14; break;
             default:
-                return Promise.reject('Invalid grade selected!');
+                return Promise.resolve();
         }
 
         const selectedYear = new Date(value).getFullYear();
         if (selectedYear < minYear || selectedYear > maxYear) {
-            return Promise.reject(`DOB doesn't match the selected grade (${selectedGradeName})`);
+            return Promise.reject(`DOB doesn't match Grade ${gradeName}`);
         }
 
         return Promise.resolve();
@@ -255,38 +287,54 @@ const CreateStudentsslc = () => {
 
     const handleDraft = async () => {
         setLoading(true);
+
         try {
-            // Validate only current step fields
             const currentStepFields = stepFields.slice(0, currentStep + 1).flat();
             const values = await form.validateFields(currentStepFields);
-            const selectedDOB = values.dob;
-            const ageObj = calculateAge(selectedDOB);
+
+            if (!values.dob) {
+                message.error("Date of Birth is required");
+                setLoading(false);
+                return;
+            }
+
+            const ageObj = calculateAge(values.dob);
+
             const payload = {
                 ...values,
-                dob: selectedDOB,
+                dob: values.dob,
                 age: JSON.stringify(ageObj),
                 school_id: role === "superadmin" ? values.school_id : schoolId
             };
 
-            await axios.post(
-                "http://localhost:8080/studentsslc/createStudentsslc",
-                payload
+            const url = isEdit
+                ? `http://localhost:8080/studentsslc/updateStudentsslc/${id}`
+                : "http://localhost:8080/studentsslc/createStudentsslc";
+
+            await axios[isEdit ? "put" : "post"](url, payload);
+
+            message.success(
+                isEdit ? "Draft updated successfully!" : "Draft saved successfully!"
             );
-            message.success("Draft saved successfully!");
+
             navigate("/studentsslc");
+
         } catch (error) {
             console.error("Draft save error:", error);
-            message.error("Failed to save draft");
+            message.error(error.response?.data?.error || "Failed to save draft");
         }
+
         setLoading(false);
     };
 
     const handleSubmit = async () => {
         setLoading(true);
+
         try {
             const values = await form.validateFields();
             const selectedDOB = values.dob;
             const ageObj = calculateAge(selectedDOB);
+
             const payload = {
                 ...values,
                 dob: selectedDOB,
@@ -294,20 +342,29 @@ const CreateStudentsslc = () => {
                 school_id: role === "superadmin" ? values.school_id : schoolId
             };
 
-            const response = await axios.post(
-                "http://localhost:8080/studentsslc/createStudentsslc",
-                payload
+            const url = isEdit
+                ? `http://localhost:8080/studentsslc/updateStudentsslc/${id}`
+                : "http://localhost:8080/studentsslc/createStudentsslc";
+
+            const response = await axios[isEdit ? "put" : "post"](url, payload);
+
+            message.success(
+                isEdit
+                    ? "Student updated successfully!"
+                    : `Student created! Number: ${response.data.application.admissionNumber}`
             );
 
-            if (response.status === 201) {
-                message.success(
-                    `Application created! Number: ${response.data.application.applicationNumber}`
-                );
+            if (isEdit) {
+                navigate("/studentsslc");
+            } else {
                 form.resetFields();
             }
+
         } catch (error) {
-            message.error("Failed to create application");
+            console.error("Submit error:", error);
+            message.error(error.response?.data?.error || "Failed to submit student");
         }
+
         setLoading(false);
     };
 
@@ -355,7 +412,7 @@ const CreateStudentsslc = () => {
             </Form.Item>
             <Form.Item label="EMIS Number" name="emisNum" rules={[
                 { required: true, message: "Enter EMIS Number!" },
-                { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" }
+                { pattern: /^[0-9]{11}$/, message: "Enter a valid 11-digit number!" }
             ]}>
                 <Input />
             </Form.Item>
@@ -389,29 +446,28 @@ const CreateStudentsslc = () => {
                 <Select
                     placeholder="Select grade"
                     onChange={(gradeId) => {
-                        const selectedSchoolId = role === "superadmin"
-                            ? form.getFieldValue("school_id")
-                            : user?.school?.id;
+                        const selectedSchoolId =
+                            role === "superadmin"
+                                ? form.getFieldValue("school_id")
+                                : user?.school?.id;
 
-                        // Reset section field
+                        // keep this (optional)
+                        const gradeObj = grades.find(g => g.id === gradeId);
+                        setSelectedGradeName(gradeObj?.grade);
+
                         form.setFieldsValue({ section_id: undefined });
-
-                        // Clear sections state
                         setSections([]);
 
-                        // Fetch sections for selected school and grade
                         if (selectedSchoolId && gradeId) {
                             fetchSectionsBySchoolAndGrade(selectedSchoolId, gradeId);
                         }
                     }}
                 >
-                    {grades
-                        .filter(grade => ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"].includes(grade.grade.toUpperCase()))
-                        .map(grade => (
-                            <Select.Option key={grade.id} value={grade.id}>
-                                {grade.grade}
-                            </Select.Option>
-                        ))}
+                    {grades.map((g) => (
+                        <Option key={g.id} value={g.id}>
+                            {g.grade}
+                        </Option>
+                    ))}
                 </Select>
             </Form.Item>
 
@@ -420,15 +476,15 @@ const CreateStudentsslc = () => {
                 name="section_id"
                 rules={[{ required: true, message: "Please select section!" }]}
             >
-                <Select placeholder="Select section">
+                <Select placeholder="Select section" disabled={!sections.length}>
                     {sections.map((section) => (
-                        <Select.Option key={section.id} value={section.id}>
+                        <Option key={section.id} value={section.id}>
                             {section.sectionName}
-                        </Select.Option>
+                        </Option>
                     ))}
                 </Select>
             </Form.Item>
-            {/* <Form.Item
+            <Form.Item
                 label="Date of Birth"
                 name="dob"
                 rules={[
@@ -438,23 +494,22 @@ const CreateStudentsslc = () => {
             >
                 <Input
                     type="date"
-                    value={dob}
+                    value={dob}   // ✅ ADD THIS
                     onChange={(e) => {
-                        const selectedDOB = e.target.value;
-                        setDOB(selectedDOB);
-                        const newAge = calculateAge(selectedDOB);
+                        const dobValue = e.target.value;
+                        setDOB(dobValue);
+
+                        const newAge = calculateAge(dobValue);
                         setAge(newAge);
-                        form.setFieldValue('dob', selectedDOB);
+
+                        form.setFieldValue("dob", dobValue);
                     }}
                 />
             </Form.Item>
 
             <Form.Item label="Age">
-                <Input
-                    value={formatAge(age)}
-                    disabled
-                />
-            </Form.Item> */}
+                <Input value={formatAge(age)} disabled />
+            </Form.Item>
             <Form.Item
                 name="nationality"
                 label="Nationality"
@@ -655,7 +710,6 @@ const CreateStudentsslc = () => {
                 <Input />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="fatherIncome"
                 label="Father's Annual Income"
                 rules={[
@@ -672,7 +726,6 @@ const CreateStudentsslc = () => {
                     }} />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="motherIncome"
                 label="Mother's Annual Income"
                 rules={[
@@ -739,6 +792,7 @@ const CreateStudentsslc = () => {
             <Form.Item
                 label="Guardian Phone Number"
                 name="guardianNumber"
+                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
             >
                 <Input />
             </Form.Item>
