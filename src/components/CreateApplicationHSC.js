@@ -37,7 +37,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
     const stepFields = [
         ['school_id', 'academicYear', 'emisNum', 'aadharNumber'], // Step 0
         ['name', 'gender', 'grade_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'identificationmarks',
-            'religion', 'scheduledcasteOrtribecommunity', 'backwardcaste', 'tribeTootherreligion', 'living', 'currentlivingaddress', 'motherTongue'], // Step 1
+            'religion', 'scheduledcasteOrtribecommunity', 'backwardcaste', 'tribeTootherreligion', 'living', 'currentlivingaddress', 'motherTongue', 'bloodGroup'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
         ['examYear', 'registrationnumber', 'tamil', 'english', 'maths', 'science', 'social', 'total', 'percentage', 'terminationreason', 'photocopyofTC', 'previousmedium', 'preferredmedium'], // Step 3
@@ -106,20 +106,20 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
         setProgressColor(colors[currentStep]);
     }, [currentStep]);
 
-const handleNext = async () => {
-    try {
-        await form.validateFields();
-        setCurrentStep(currentStep + 1);
-    } catch (err) {
-        console.error("Validation failed:", err);
-        const failedField = err?.errorFields?.[0]?.name?.[0];
-        if (failedField) {
-            message.error(`Please check the field: "${failedField}"`);
-        } else {
-            message.error("Please correct the highlighted fields.");
+    const handleNext = async () => {
+        try {
+            await form.validateFields();
+            setCurrentStep(currentStep + 1);
+        } catch (err) {
+            console.error("Validation failed:", err);
+            const failedField = err?.errorFields?.[0]?.name?.[0];
+            if (failedField) {
+                message.error(`Please check the field: "${failedField}"`);
+            } else {
+                message.error("Please correct the highlighted fields.");
+            }
         }
-    }
-};
+    };
     const handlePrev = () => {
         setCurrentStep(currentStep - 1);
     };
@@ -462,7 +462,6 @@ const handleNext = async () => {
                 <Input value={formatAge(age)} disabled />
             </Form.Item>
             <Form.Item
-                style={{ width: 315 }}
                 name="nationality"
                 label="Nationality"
                 rules={[{ required: true, message: 'Required!' }]}
@@ -474,7 +473,6 @@ const handleNext = async () => {
             </Form.Item>
 
             <Form.Item
-                style={{ width: 280 }}
                 name="state"
                 label="State"
                 rules={[{ required: true, message: 'Required!' }]}
@@ -486,7 +484,6 @@ const handleNext = async () => {
                 </Select>
             </Form.Item>
             <Form.Item
-                style={{ width: 315 }}
                 name="motherTongue"
                 label="Mother Tongue"
                 rules={[{ required: true, message: 'Required!' }]}
@@ -583,7 +580,9 @@ const handleNext = async () => {
                     placeholder="Enter Your Reason"
                     maxLength={500} />
             </Form.Item>
-            <Form.Item label="Identification Marks" name="identificationmarks" rules={[{ required: true, message: "Required!" }]}>
+            <Form.Item label="Identification Marks"
+                name="identificationmarks"
+                rules={[{ required: true, message: "Required!" }]}>
                 <Input />
             </Form.Item>
             <Form.Item
@@ -611,7 +610,6 @@ const handleNext = async () => {
                     <Option value="A2B-ve">A2B-VE</Option>
                 </Select>
             </Form.Item>
-
         </>,
 
         // Step 3: Parent Information
@@ -646,7 +644,6 @@ const handleNext = async () => {
                 <Input />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="fatherIncome"
                 label="Father's Annual Income"
                 rules={[
@@ -663,7 +660,6 @@ const handleNext = async () => {
                     }} />
             </Form.Item>
             <Form.Item
-                style={{ width: 342 }}
                 name="motherIncome"
                 label="Mother's Annual Income"
                 rules={[
@@ -703,7 +699,7 @@ const handleNext = async () => {
             <Form.Item
                 label="Mobile Number"
                 name="mobileNumber"
-                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
+                rules={[{ pattern: /^[0-9]{10}$/, message: "Required!", message: "Invalid phone number!" }]}
             >
                 <Input />
             </Form.Item>
@@ -730,6 +726,7 @@ const handleNext = async () => {
             <Form.Item
                 label="Guardian Phone Number"
                 name="guardianNumber"
+                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
             >
                 <Input />
             </Form.Item>
@@ -756,7 +753,6 @@ const handleNext = async () => {
             </Form.Item>
             <Form.Item
                 name="registrationnumber"
-                style={{ width: 320 }}
                 label="Registration Number"
             >
                 <Input
@@ -984,8 +980,6 @@ const handleNext = async () => {
                         }
                     }}
                 >
-
-
                     {stepContent[currentStep]}
 
                     <Row justify="space-between" style={{ marginTop: 24 }}>
