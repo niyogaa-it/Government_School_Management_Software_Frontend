@@ -15,69 +15,107 @@ const CreateSubject = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
   const isSuperAdmin = role === "superadmin";
-  const userSchoolId = user?.school?.id;
+
+  const schoolId = user?.school?.id;
 
   const [selectedSchoolId, setSelectedSchoolId] = useState(
-    isSuperAdmin ? null : userSchoolId
+    isSuperAdmin ? null : schoolId
   );
 
+  // ✅ Initial Load
   useEffect(() => {
     if (isSuperAdmin) {
       fetchAllSchools();
-    } else {
-      fetchGrades(userSchoolId);
+    } else if (schoolId) {
+      fetchGrades(schoolId);
     }
-  }, []);
+  }, [role, schoolId]);
 
+  // ✅ Fetch Schools
   const fetchAllSchools = async () => {
     try {
-      const response = await axios.get("http://localhost:8080/school/getAllSchools");
+      const response = await axios.get(
+        "http://localhost:8080/school/getAllSchools"
+      );
       setSchools(response.data.schools || []);
     } catch (error) {
       message.error("Failed to fetch schools");
     }
   };
 
+  // ✅ Fetch Grades
   const fetchGrades = async (schoolId) => {
+    if (!schoolId) return;
+
     try {
-      const response = await axios.get(`http://localhost:8080/grade/getGradesBySchool/${schoolId}`);
-      setGrades(response.data.grades || []);
+      const res = await axios.get(
+        `http://localhost:8080/grade/getGradesBySchool/${schoolId}`
+      );
+      setGrades(res.data.grades || []);
     } catch (error) {
       message.error("Failed to fetch grades");
     }
   };
 
-  const fetchSections = async (gradeId) => {
+  // ✅ Fetch Sections
+  const fetchSectionsBySchoolAndGrade = async (schoolId, gradeId) => {
+    if (!schoolId || !gradeId) return;
+
     try {
-      const response = await axios.get(`http://localhost:8080/section/getSectionsByGrade/${gradeId}`);
+      const response = await axios.get(
+        `http://localhost:8080/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
+      );
       setSections(response.data.sections || []);
     } catch (error) {
+      console.error(error);
       message.error("Failed to fetch sections");
     }
   };
 
-  const handleSchoolChange = (schoolId) => {
-    setSelectedSchoolId(schoolId);
-    form.setFieldsValue({ grade_id: null, section_id: null });
+  // ✅ When School Changes (SuperAdmin)
+  const handleSchoolChange = (value) => {
+    setSelectedSchoolId(value);
+
+    form.setFieldsValue({
+      grade_id: undefined,
+      section_id: undefined,
+    });
+
     setGrades([]);
     setSections([]);
-    fetchGrades(schoolId);
+
+    fetchGrades(value);
   };
 
+  // ✅ When Grade Changes
   const handleGradeChange = (gradeId) => {
-    form.setFieldsValue({ section_id: null });
-    fetchSections(gradeId);
+    const selectedSchool =
+      role === "superadmin"
+        ? form.getFieldValue("school_id")
+        : schoolId;
+
+    form.setFieldsValue({ section_id: undefined });
+    setSections([]);
+
+    if (selectedSchool && gradeId) {
+      fetchSectionsBySchoolAndGrade(selectedSchool, gradeId);
+    }
   };
 
+  // ✅ Submit
   const handleSubmit = async (values) => {
     setLoading(true);
+
     try {
       const payload = {
         ...values,
-        school_id: selectedSchoolId,
+        school_id: isSuperAdmin ? values.school_id : schoolId,
       };
 
-      const response = await axios.post("http://localhost:8080/subject/createSubject", payload);
+      const response = await axios.post(
+        "http://localhost:8080/subject/createSubject",
+        payload
+      );
 
       if (response.status === 201) {
         message.success("Subject created successfully!");
@@ -85,8 +123,9 @@ const CreateSubject = () => {
         setSections([]);
       }
     } catch (error) {
-      message.error("Failed to create subject.");
+      message.error("Failed to create subject");
     }
+
     setLoading(false);
   };
 
@@ -98,18 +137,20 @@ const CreateSubject = () => {
             Create Subject
           </Title>
 
-          {loading && (
-            <Spin size="large" style={{ display: "block", margin: "auto" }} />
-          )}
-
-          <Form form={form} onFinish={handleSubmit} layout="vertical">
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            
+            {/* ✅ School */}
             {isSuperAdmin ? (
               <Form.Item
-                label="School"
                 name="school_id"
-                rules={[{ required: true, message: "Please select a school" }]}
+                label="School"
+                rules={[{ required: true }]}
               >
-                <Select placeholder="Select school" onChange={handleSchoolChange}>
+                <Select
+                  placeholder="Select school"
+                  onChange={handleSchoolChange}
+                  showSearch
+                >
                   {schools.map((school) => (
                     <Option key={school.id} value={school.id}>
                       {school.name}
@@ -119,15 +160,17 @@ const CreateSubject = () => {
               </Form.Item>
             ) : (
               <>
-                <Form.Item name="school_id" initialValue={userSchoolId} hidden>
+                <Form.Item name="school_id" hidden initialValue={schoolId}>
                   <Input type="hidden" />
                 </Form.Item>
+
                 <Form.Item label="School Name">
                   <Input value={user?.school?.name || "N/A"} disabled />
                 </Form.Item>
               </>
             )}
 
+            {/* ✅ Grade */}
             <Form.Item
               label="Grade"
               name="grade_id"
@@ -136,57 +179,54 @@ const CreateSubject = () => {
               <Select
                 placeholder="Select grade"
                 onChange={handleGradeChange}
-                disabled={!selectedSchoolId}
               >
-                {grades.map((grade) => (
-                  <Option key={grade.id} value={grade.id}>
-                    {grade.grade}
+                {grades.map((g) => (
+                  <Option key={g.id} value={g.id}>
+                    {g.grade}
                   </Option>
                 ))}
               </Select>
             </Form.Item>
 
+            {/* ✅ Section */}
             <Form.Item
               label="Section"
               name="section_id"
               rules={[{ required: true, message: "Please select section!" }]}
             >
-              <Select placeholder="Select section" disabled={grades.length === 0}>
-                {sections.length > 0 ? (
-                  sections.map((section) => (
-                    <Option key={section.id} value={section.id}>
-                      {section.sectionName}
-                    </Option>
-                  ))
-                ) : (
-                  form.getFieldValue("grade_id") && (
-                    <Option disabled>No sections available</Option>
-                  )
-                )}
+              <Select placeholder="Select section" disabled={!sections.length}>
+                {sections.map((section) => (
+                  <Option key={section.id} value={section.id}>
+                    {section.sectionName}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
 
+            {/* ✅ Subject Name */}
             <Form.Item
               label="Subject Name"
               name="subjectName"
-              rules={[{ required: true, message: "Enter subject name!" }]}
+              rules={[{ required: true }]}
             >
               <Input />
             </Form.Item>
 
+            {/* ✅ Short Code */}
             <Form.Item
               label="Short Code"
               name="shortCode"
-              rules={[{ required: true, message: "Enter short code!" }]}
+              rules={[{ required: true }]}
             >
               <Input />
             </Form.Item>
 
             <Form.Item>
-              <Button type="primary" htmlType="submit" disabled={loading} block>
-                {loading ? <Spin /> : "Create Subject"}
+              <Button type="primary" htmlType="submit" block loading={loading}>
+                Create Subject
               </Button>
             </Form.Item>
+
           </Form>
         </div>
       </div>
