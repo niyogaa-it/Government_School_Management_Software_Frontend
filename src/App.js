@@ -30,6 +30,8 @@ import StudentHSCList from "./components/StudentAppHSCList";
 import CreateStudenthsc from "./components/CreateStudentHSC";
 import EditAdmin from "./components/EditAdmin";
 import EditSection from "./components/EditSection";
+import SubjectList from "./components/SubjectList";
+// import PromoteStudentModal from "./components/PromoteStudentModal";
 
 
 const App = () => {
@@ -72,6 +74,7 @@ const App = () => {
           <Route path="/create-group" element={<CreateGroup />} />
           <Route path="/edit-admin/:id" element={<EditAdmin />} />
           <Route path="/edit-section/:id" element={<EditSection />} />
+          {/* <Route path="/promotestudents" element={<PromoteStudentModal />} /> */}
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={["superadmin", "schooladmin", "teacher"]} />}>
@@ -86,6 +89,7 @@ const App = () => {
           <Route path="/studentsslc" element={<StudentSSLCList />} />
           <Route path="/create-studentsslc" element={<CreateStudentsslc />} />
           <Route path="/create-subject" element={<CreateSubject />} />
+          <Route path="/subject" element={<SubjectList />} />
           <Route path="/studenthsc" element={<StudentHSCList />} />
           <Route path="/create-studenthsc" element={<CreateStudenthsc />} />
           <Route path="/edit-studentsslc/:id" element={<CreateStudentsslc isEdit={true} />} />
