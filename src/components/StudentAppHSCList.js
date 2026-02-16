@@ -152,12 +152,14 @@ const StudentHSCList = () => {
       }
 
       const formattedStudenthscs = (response.data.studenthscs || [])
-        .filter(studenthsc => studenthsc.status !== "DELETED") 
+        .filter(studenthsc => studenthsc.status !== "DELETED")
         .map(studenthsc => ({
           ...studenthsc,
           Grade: studenthsc.Grade || { grade: "N/A" }
         }));
-
+      const sortedStudenthscs = formattedStudenthscs.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
       setStudenthscs(formattedStudenthscs);
     } catch (error) {
       console.error("Error fetching Students:", error);
@@ -203,24 +205,24 @@ const StudentHSCList = () => {
     }
   };
 
-const handleDelete = async (id, name) => {
-  const confirmDelete = window.confirm(
-    `Are you sure you want to remove application of ${name}?`
-  );
-  if (!confirmDelete) return;
+  const handleDelete = async (id, name) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to remove application of ${name}?`
+    );
+    if (!confirmDelete) return;
 
-  try {
-    await axios.put(`http://localhost:8080/studenthsc/updateStatus/${id}`);
+    try {
+      await axios.put(`http://localhost:8080/studenthsc/updateStatus/${id}`);
 
-    message.success("Application removed successfully");
+      message.success("Application removed successfully");
 
-    // Instantly update UI
-    setStudenthscs(prev => prev.filter(student => student.id !== id));
+      // Instantly update UI
+      setStudenthscs(prev => prev.filter(student => student.id !== id));
 
-  } catch (error) {
-    message.error("Failed to remove application");
-  }
-};
+    } catch (error) {
+      message.error("Failed to remove application");
+    }
+  };
 
 
   const formatAge = (age) => {
@@ -498,6 +500,7 @@ const handleDelete = async (id, name) => {
                 <th>Name</th>
                 <th>Gender</th>
                 <th>Grade</th>
+                <th>Section</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -513,6 +516,7 @@ const handleDelete = async (id, name) => {
                     <td>{student.name}</td>
                     <td>{student.gender}</td>
                     <td>{student.Grade?.grade || "N/A"}</td>
+                    <td>{student.Section?.sectionName || "N/A"}</td>
                     <td style={{ textAlign: "center" }}>
                       <td style={{ textAlign: "center" }}>
                         <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
@@ -708,9 +712,6 @@ const handleDelete = async (id, name) => {
             </Descriptions.Item>
             <Descriptions.Item label="Percentage">
               {selectedApplication.percentage}
-            </Descriptions.Item>
-            <Descriptions.Item label="First Language Preference">
-              {selectedApplication.firstLanguage}
             </Descriptions.Item>
             <Descriptions.Item label="Reason for Discontinuation/Termination">
               {selectedApplication.terminationreason}
