@@ -35,7 +35,7 @@ const CreateStudenthsc = () => {
 
     const stepFields = [
         ['school_id', 'academicYear', 'dateofjoin', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'identificationmarks',
+        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'caste', 'identificationmarks',
             'religion', 'scheduledcasteOrtribecommunity', 'backwardcaste', 'bloodGroup', 'tribeTootherreligion', 'living', 'currentlivingaddress', 'motherTongue'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
@@ -166,6 +166,14 @@ const CreateStudenthsc = () => {
     };
 
     const validateDOB = (_, value) => {
+        const gradeId = form.getFieldValue("grade_id");
+        const gradeObj = grades.find(g => g.id === gradeId);
+        const gradeName = gradeObj?.grade;
+
+        if (!gradeName) {
+            return Promise.resolve(); // allow edit load
+        }
+
         const currentYear = new Date().getFullYear();
         let minYear, maxYear;
 
@@ -464,7 +472,7 @@ const CreateStudenthsc = () => {
                 name="dob"
                 rules={[
                     { required: true, message: "Please select date of birth!" },
-                    { validator: validateDOB }
+                    ...(isEdit ? [] : [{ validator: validateDOB }])
                 ]}
             >
                 <Input
@@ -557,6 +565,9 @@ const CreateStudenthsc = () => {
                     <Option value="BCM">BCM</Option>
                     <Option value="Others">Others</Option>
                 </Select>
+            </Form.Item>
+            <Form.Item label="Caste" name="caste">
+                <Input />
             </Form.Item>
             <Form.Item
                 name="scheduledcasteOrtribecommunity"
