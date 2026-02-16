@@ -36,6 +36,7 @@ const ApplicationSSLCList = () => {
 
       const formattedApplicationsslcs = (response.data.applicationsslcs || [])
         .filter(app => app.studentStatus === "Applied")
+        .sort((a, b) => b.id - a.id)
         .map(applicationsslc => ({
           ...applicationsslc,
           Grade: applicationsslc.Grade || { grade: "N/A" }
@@ -307,6 +308,9 @@ const ApplicationSSLCList = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Community">
                 {selectedApplication.community}
+              </Descriptions.Item>
+              <Descriptions.Item label="Caste">
+                {selectedApplication.caste}
               </Descriptions.Item>
               <Descriptions.Item label="Is the student from scheduled tribe community?">
                 {selectedApplication.tribecommunity}
