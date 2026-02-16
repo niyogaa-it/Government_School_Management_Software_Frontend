@@ -149,7 +149,9 @@ const StudentSSLCList = () => {
           Grade: studentsslc.Grade || { grade: "N/A" },
           Section: studentsslc.Section || { sectionName: "N/A" }
         }));
-
+      const sortedStudenthscs = formattedStudentsslcs.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
       setStudentsslcs(formattedStudentsslcs);
     } catch (error) {
       console.error("Error fetching Students:", error);
@@ -337,6 +339,10 @@ const StudentSSLCList = () => {
     <tr>
         <td><strong>Community:</strong></td>
         <td>${selectedApplication.community}</td>
+    </tr>
+    <tr>
+        <td><strong>Caste:</strong></td>
+        <td>${selectedApplication.caste}</td>
     </tr>
     <tr>
         <td><strong>Is the student from scheduled tribe community?</strong></td>
@@ -635,6 +641,9 @@ const StudentSSLCList = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Community">
                 {selectedApplication.community}
+              </Descriptions.Item>
+              <Descriptions.Item label="Caste">
+                {selectedApplication.caste}
               </Descriptions.Item>
               <Descriptions.Item label="Is the student from scheduled tribe community?">
                 {selectedApplication.tribecommunity}
@@ -950,6 +959,10 @@ const StudentSSLCList = () => {
                     <Option value="BCM">BCM</Option>
                     <Option value="Others">Others</Option>
                   </Select>
+                </Form.Item>
+
+                <Form.Item label="Caste" name="caste">
+                  <Input />
                 </Form.Item>
 
                 <Form.Item label="Is the student from scheduled tribe community?" name="tribecommunity">
