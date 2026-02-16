@@ -39,7 +39,7 @@ const CreateStudentsslc = () => {
 
     const stepFields = [
         ['school_id', 'academicYear', 'dateofjoin', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'motherTongue', 'hometown', 'religion', 'community',
+        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'motherTongue', 'hometown', 'religion', 'community', 'caste',
             'tribecommunity', 'exgratiasalary', 'religionchanging', 'living', 'vaccinated', 'identificationmarks', 'bloodGroup', 'physical', 'physicalDetails'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
@@ -451,9 +451,8 @@ const CreateStudentsslc = () => {
                                 ? form.getFieldValue("school_id")
                                 : user?.school?.id;
 
-                        // keep this (optional)
                         const gradeObj = grades.find(g => g.id === gradeId);
-                        setSelectedGradeName(gradeObj?.grade);
+                        setSelectedGradeName(gradeObj?.grade || "");
 
                         form.setFieldsValue({ section_id: undefined });
                         setSections([]);
@@ -463,13 +462,19 @@ const CreateStudentsslc = () => {
                         }
                     }}
                 >
-                    {grades.map((g) => (
-                        <Option key={g.id} value={g.id}>
-                            {g.grade}
-                        </Option>
-                    ))}
+                    {grades
+                        .filter(g =>
+                            ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+                                .includes(g.grade?.toUpperCase())
+                        )
+                        .map((g) => (
+                            <Option key={g.id} value={g.id}>
+                                {g.grade}
+                            </Option>
+                        ))}
                 </Select>
             </Form.Item>
+
 
             <Form.Item
                 label="Section"
@@ -581,6 +586,9 @@ const CreateStudentsslc = () => {
                     <Option value="BCM">BCM</Option>
                     <Option value="Others">Others</Option>
                 </Select>
+            </Form.Item>
+            <Form.Item label="Caste" name="caste">
+                <Input />
             </Form.Item>
             <Form.Item
                 name="tribecommunity"
