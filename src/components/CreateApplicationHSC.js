@@ -36,7 +36,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
 
     const stepFields = [
         ['school_id', 'academicYear', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'identificationmarks',
+        ['name', 'gender', 'grade_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'caste', 'identificationmarks',
             'religion', 'scheduledcasteOrtribecommunity', 'backwardcaste', 'tribeTootherreligion', 'living', 'currentlivingaddress', 'motherTongue', 'bloodGroup'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
@@ -394,7 +394,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
             </Form.Item>
             <Form.Item label="EMIS Number" name="emisNum" rules={[
                 { required: true, message: "Enter EMIS Number!" },
-                { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" }
+                { pattern: /^[0-9]{11}$/, message: "Enter a valid 11-digit number!" }
             ]}>
                 <Input />
             </Form.Item>
@@ -531,6 +531,9 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
                     <Option value="BCM">BCM</Option>
                     <Option value="Others">Others</Option>
                 </Select>
+            </Form.Item>
+            <Form.Item label="Caste" name="caste">
+                <Input />
             </Form.Item>
             <Form.Item
                 name="scheduledcasteOrtribecommunity"
