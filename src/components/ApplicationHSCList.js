@@ -36,6 +36,7 @@ const ApplicationHSCList = () => {
       }
       const formattedApplicationhscs = (response.data.applicationhscs || [])
         .filter(app => app.studentStatus === "Applied")
+        .sort((a, b) => b.id - a.id)
         .map(applicationhsc => ({
           ...applicationhsc,
           Grade: applicationhsc.Grade || { grade: "N/A" }
@@ -305,6 +306,9 @@ const ApplicationHSCList = () => {
               <Descriptions.Item label="Community">
                 {selectedApplication.community}
               </Descriptions.Item>
+              <Descriptions.Item label="Caste">
+                {selectedApplication.caste}
+              </Descriptions.Item>
               <Descriptions.Item label="Is the student from scheduled caste/ from scheduled tribe community?">
                 {selectedApplication.scheduledcasteOrtribecommunity}
               </Descriptions.Item>
@@ -316,9 +320,6 @@ const ApplicationHSCList = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Living with whom">
                 {selectedApplication.living}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is the student for chicken pox? Is scar Available?">
-                {selectedApplication.currentlivingaddres}
               </Descriptions.Item>
               <Descriptions.Item label="If not living with Parents or Guardian then write current living address">
                 {selectedApplication.identificationmarks}
