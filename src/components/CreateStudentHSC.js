@@ -63,7 +63,7 @@ const CreateStudenthsc = () => {
         const fetchStudentForEdit = async () => {
             try {
                 const res = await axios.get(
-                    `http://localhost:8080/studenthsc/getStudenthscById/${id}`
+                    `${process.env.REACT_APP_API_URL}/studenthsc/getStudenthscById/${id}`
                 );
 
                 const data = res.data.application;
@@ -105,7 +105,7 @@ const CreateStudenthsc = () => {
 
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/school/getAllSchools");
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
             setSchools(response.data.schools || []);
         } catch (error) {
             message.error("Failed to fetch schools");
@@ -117,7 +117,7 @@ const CreateStudenthsc = () => {
 
         try {
             const res = await axios.get(
-                `http://localhost:8080/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
+                `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
             );
             setSections(res.data.sections || []);
         } catch (err) {
@@ -129,7 +129,7 @@ const CreateStudenthsc = () => {
     // const fetchGroupsBySchoolAndGrade = async (schoolId, gradeId) => {
     //     try {
     //         const response = await axios.get(
-    //             `http://localhost:8080/group/getGroupsBySchoolAndGrade/${schoolId}/${gradeId}`
+    //             `${process.env.REACT_APP_API_URL}/group/getGroupsBySchoolAndGrade/${schoolId}/${gradeId}`
     //         );
     //         setGroups(response.data.groups || []);
     //     } catch (error) {
@@ -157,7 +157,7 @@ const CreateStudenthsc = () => {
     const fetchGrades = async (selectedSchoolId) => {
         try {
             const response = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
             );
             setGrades(response.data.grades || []);
         } catch (error) {
@@ -298,8 +298,8 @@ const CreateStudenthsc = () => {
             };
 
             const url = isEdit
-                ? `http://localhost:8080/studenthsc/updateStudenthsc/${id}`
-                : "http://localhost:8080/studenthsc/createStudenthsc";
+                ? `${process.env.REACT_APP_API_URL}/studenthsc/updateStudenthsc/${id}`
+                : `${process.env.REACT_APP_API_URL}/studenthsc/createStudenthsc`;
 
             await axios[isEdit ? "put" : "post"](url, payload);
 
@@ -327,8 +327,8 @@ const CreateStudenthsc = () => {
             };
 
             const url = isEdit
-                ? `http://localhost:8080/studenthsc/updateStudenthsc/${id}`
-                : "http://localhost:8080/studenthsc/createStudenthsc";
+                ? `${process.env.REACT_APP_API_URL}/studenthsc/updateStudenthsc/${id}`
+                : `${process.env.REACT_APP_API_URL}/studenthsc/createStudenthsc`;
 
             const response = await axios[isEdit ? "put" : "post"](url, payload);
             message.success(
