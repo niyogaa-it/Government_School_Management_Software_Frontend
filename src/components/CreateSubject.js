@@ -35,7 +35,7 @@ const CreateSubject = () => {
   const fetchAllSchools = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:8080/school/getAllSchools"
+        `${process.env.REACT_APP_API_URL}/school/getAllSchools`
       );
       setSchools(response.data.schools || []);
     } catch (error) {
@@ -49,7 +49,7 @@ const CreateSubject = () => {
 
     try {
       const res = await axios.get(
-        `http://localhost:8080/grade/getGradesBySchool/${schoolId}`
+        `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`
       );
       setGrades(res.data.grades || []);
     } catch (error) {
@@ -63,7 +63,7 @@ const CreateSubject = () => {
 
     try {
       const response = await axios.get(
-        `http://localhost:8080/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
+        `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
       );
       setSections(response.data.sections || []);
     } catch (error) {
@@ -113,7 +113,7 @@ const CreateSubject = () => {
       };
 
       const response = await axios.post(
-        "http://localhost:8080/subject/createSubject",
+        `${process.env.REACT_APP_API_URL}/subject/createSubject`,
         payload
       );
 
