@@ -19,11 +19,11 @@ const SubjectList = () => {
 
       if (role === "superadmin") {
         res = await axios.get(
-          "http://localhost:8080/subject/getAllSubjects"
+          `${process.env.REACT_APP_API_URL}/subject/getAllSubjects`
         );
       } else {
         res = await axios.get(
-          "http://localhost:8080/subject/getAllSubjects"
+          `${process.env.REACT_APP_API_URL}/subject/getAllSubjects`
         );
       }
 
@@ -53,7 +53,7 @@ const SubjectList = () => {
     if (window.confirm("Are you sure you want to delete this subject?")) {
       try {
         await axios.put(
-          `http://localhost:8080/subject/updateStatus/${id}`,
+          `${process.env.REACT_APP_API_URL}/subject/updateStatus/${id}`,
           { status: 0 }
         );
 
