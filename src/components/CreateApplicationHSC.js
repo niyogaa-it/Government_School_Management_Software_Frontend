@@ -60,7 +60,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
 
     const loadApplicationForEdit = async (id) => {
         try {
-            const response = await axios.get(`http://localhost:8080/applicationhsc/getApplicationhscById/${id}`);
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/applicationhsc/getApplicationhscById/${id}`);
             const application = response.data.application;
 
             if (role === "superadmin") {
@@ -88,7 +88,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
 
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/school/getAllSchools");
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
             setSchools(response.data.schools || []);
         } catch (error) {
             message.error("Failed to fetch schools");
@@ -127,7 +127,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
     const fetchGrades = async (selectedSchoolId) => {
         try {
             const response = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
             );
             setGrades(response.data.grades || []);
         } catch (error) {
@@ -266,7 +266,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
                 aadharNumber: values.aadharNumber ? String(values.aadharNumber).trim() : ""
             };
 
-            const existing = await axios.get(`http://localhost:8080/applicationhsc/getApplicationhscsBySchool/${schoolId}`);
+            const existing = await axios.get(`${process.env.REACT_APP_API_URL}/applicationhsc/getApplicationhscsBySchool/${schoolId}`);
             const existingApps = existing.data.applicationhscs || [];
 
             const isDuplicateEmis = existingApps.some(app => app.emisNum === payload.emisNum && app.id !== id);
@@ -285,8 +285,8 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
             }
 
             const url = isEdit
-                ? `http://localhost:8080/applicationhsc/updateApplicationhsc/${id}`
-                : "http://localhost:8080/applicationhsc/createApplicationhsc";
+                ? `${process.env.REACT_APP_API_URL}/applicationhsc/updateApplicationhsc/${id}`
+                : `${process.env.REACT_APP_API_URL}/applicationhsc/createApplicationhsc`;
 
             await axios[isEdit ? 'put' : 'post'](url, payload);
             message.success("Application saved successfully!");
@@ -314,7 +314,7 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
 
             // Duplicate check only for new application
             if (!isEdit) {
-                const existing = await axios.get(`http://localhost:8080/applicationhsc/getApplicationhscsBySchool/${schoolId}`);
+                const existing = await axios.get(`${process.env.REACT_APP_API_URL}/applicationhsc/getApplicationhscsBySchool/${schoolId}`);
                 const existingApps = existing.data.applicationhscs || [];
 
                 const isDuplicateEmis = existingApps.some(app => app.emisNum === payload.emisNum);
@@ -334,8 +334,8 @@ const CreateApplicationhsc = ({ isEdit = false }) => {
             }
 
             const url = isEdit
-                ? `http://localhost:8080/applicationhsc/updateApplicationhsc/${id}`
-                : "http://localhost:8080/applicationhsc/createApplicationhsc";
+                ? `${process.env.REACT_APP_API_URL}/applicationhsc/updateApplicationhsc/${id}`
+                : `${process.env.REACT_APP_API_URL}/applicationhsc/createApplicationhsc`;
 
             const response = await axios[isEdit ? 'put' : 'post'](url, payload);
 
