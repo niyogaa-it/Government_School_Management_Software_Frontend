@@ -97,7 +97,7 @@ const StudentHSCList = () => {
 
   const fetchSections = async (gradeId) => {
     try {
-      const response = await axios.get(`http://localhost:8080/section/getSectionsByGrade/${gradeId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/section/getSectionsByGrade/${gradeId}`);
       setSections(response.data.sections || []);
     } catch (error) {
       console.error("Failed to fetch sections", error);
@@ -106,7 +106,7 @@ const StudentHSCList = () => {
 
   const fetchGroups = async (gradeId) => {
     try {
-      const response = await axios.get(`http://localhost:8080/group/getGroupsByGrade/${gradeId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/group/getGroupsByGrade/${gradeId}`);
       setGroups(response.data.groups || []);
     } catch (error) {
       console.error("Failed to fetch groups", error);
@@ -140,14 +140,14 @@ const StudentHSCList = () => {
       let response;
 
       if (role === "superadmin") {
-        response = await axios.get("http://localhost:8080/studenthsc/getAllStudenthsc");
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/studenthsc/getAllStudenthsc`);
       } else {
         if (!schoolId) {
           console.error("School ID is missing");
           return;
         }
         response = await axios.get(
-          `http://localhost:8080/studenthsc/getStudenthscsBySchool/${schoolId}`
+          `${process.env.REACT_APP_API_URL}/studenthsc/getStudenthscsBySchool/${schoolId}`
         );
       }
 
@@ -169,7 +169,7 @@ const StudentHSCList = () => {
 
   const handleView = async (id) => {
     try {
-      const response = await axios.get(`http://localhost:8080/studenthsc/getStudenthscById/${id}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/studenthsc/getStudenthscById/${id}`);
       setSelectedApplication(response.data.application);
       setIsModalVisible(true);
     } catch (error) {
@@ -192,7 +192,7 @@ const StudentHSCList = () => {
 
       const values = await editForm.validateFields();
 
-      await axios.put(`http://localhost:8080/studenthsc/updateStudenthsc/${editFormData.id}`, {
+      await axios.put(`${process.env.REACT_APP_API_URL}/studenthsc/updateStudenthsc/${editFormData.id}`, {
         ...editFormData,
         ...values
       });
@@ -212,7 +212,7 @@ const StudentHSCList = () => {
     if (!confirmDelete) return;
 
     try {
-      await axios.put(`http://localhost:8080/studenthsc/updateStatus/${id}`);
+      await axios.put(`${process.env.REACT_APP_API_URL}/studenthsc/updateStatus/${id}`);
 
       message.success("Application removed successfully");
 
