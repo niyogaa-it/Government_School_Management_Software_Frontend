@@ -31,6 +31,9 @@ import CreateStudenthsc from "./components/CreateStudentHSC";
 import EditAdmin from "./components/EditAdmin";
 import EditSection from "./components/EditSection";
 import SubjectList from "./components/SubjectList";
+import EditSubject from "./components/EditSubject";
+import EditGrade from "./components/EditGrade";
+import EditSchool from "./components/EditSchool";
 // import PromoteStudentModal from "./components/PromoteStudentModal";
 
 
@@ -50,6 +53,7 @@ const App = () => {
           <Route path="/superadmin-dashboard" element={<Superadmin />} />
           <Route path="/school-list" element={<SchoolList />} />
           <Route path="/create-school" element={<CreateSchool />} />
+          <Route path="/edit-school/:id" element={<EditSchool />} />
         </Route>
 
         {/* School Admin Dashboard */}
@@ -94,6 +98,8 @@ const App = () => {
           <Route path="/create-studenthsc" element={<CreateStudenthsc />} />
           <Route path="/edit-studentsslc/:id" element={<CreateStudentsslc isEdit={true} />} />
           <Route path="/edit-studenthsc/:id" element={<CreateStudenthsc isEdit={true} />} />
+          <Route path="/edit-subject/:id" element={<EditSubject />} />
+          <Route path="/edit-grade/:id" element={<EditGrade />} />
         </Route>
 
 
