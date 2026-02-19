@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Button, Form, Input, Spin, Typography, message, Select, InputNumber, Radio, Steps, Card, Row, Col, Progress } from 'antd';
+import { Button, Form, Input, Spin, Typography, Checkbox, message, Select, InputNumber, Radio, Steps, Card, Row, Col, Progress } from 'antd';
 
 const { Title } = Typography;
 const { Step } = Steps;
@@ -12,6 +12,9 @@ const CreateStudenthsc = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [grades, setGrades] = useState([]);
+    const [subjects, setSubjects] = useState([]);
+    const [selectedSubjects, setSelectedSubjects] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
     const { id } = useParams();
     const isEdit = Boolean(id);
@@ -35,7 +38,7 @@ const CreateStudenthsc = () => {
 
     const stepFields = [
         ['school_id', 'academicYear', 'dateofjoin', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'caste', 'identificationmarks',
+        ['name', 'gender', 'grade_id', 'section_id', 'group_subjects', 'dob', 'age', 'nationality', 'state', 'birthdistrict', 'community', 'caste', 'identificationmarks',
             'religion', 'scheduledcasteOrtribecommunity', 'backwardcaste', 'bloodGroup', 'tribeTootherreligion', 'living', 'currentlivingaddress', 'motherTongue'], // Step 1
         ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
             'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
@@ -63,49 +66,60 @@ const CreateStudenthsc = () => {
         const fetchStudentForEdit = async () => {
             try {
                 const res = await axios.get(
-                    `http://localhost:8080/studenthsc/getStudenthscById/${id}`
+                    `${process.env.REACT_APP_API_URL}/studenthsc/getStudenthscById/${id}`
                 );
 
                 const data = res.data.application;
+
                 const dobValue = data.dob ? data.dob.split("T")[0] : "";
+
                 const parsedAge =
                     typeof data.age === "string"
                         ? JSON.parse(data.age)
                         : calculateAge(dobValue);
 
+                // PARSE STORED SUBJECTS
+                const parsedSubjects = data.group_subjects
+                    ? JSON.parse(data.group_subjects)
+                    : [];
+
+                // Load dropdown data
                 if (data.school_id) {
                     await fetchGrades(data.school_id);
                 }
 
                 if (data.school_id && data.grade_id) {
-                    await fetchSections(data.school_id, data.grade_id); // 👈 MUST WAIT
+                    await fetchSections(data.school_id, data.grade_id);
+                    await fetchSubjectsBySchoolAndGrade(
+                        data.school_id,
+                        data.grade_id
+                    );
                 }
 
-                // ✅ NOW set form values
+                // Set form values INCLUDING subjects
                 form.setFieldsValue({
                     ...data,
                     dob: dobValue,
                     grade_id: data.grade_id || data.Grade?.id,
                     section_id: data.section_id || data.Section?.id,
-                    school_id: data.school_id
+                    school_id: data.school_id,
+                    group_subjects: parsedSubjects
                 });
 
+                // Set checkbox selected values
+                setSelectedSubjects(parsedSubjects);
                 setDOB(dobValue);
                 setAge(parsedAge);
-
             } catch (error) {
                 message.error("Failed to load student data");
             }
         };
-
         fetchStudentForEdit();
     }, [id]);
 
-
-
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/school/getAllSchools");
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
             setSchools(response.data.schools || []);
         } catch (error) {
             message.error("Failed to fetch schools");
@@ -117,7 +131,7 @@ const CreateStudenthsc = () => {
 
         try {
             const res = await axios.get(
-                `http://localhost:8080/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
+                `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
             );
             setSections(res.data.sections || []);
         } catch (err) {
@@ -126,17 +140,39 @@ const CreateStudenthsc = () => {
         }
     };
 
-    // const fetchGroupsBySchoolAndGrade = async (schoolId, gradeId) => {
-    //     try {
-    //         const response = await axios.get(
-    //             `http://localhost:8080/group/getGroupsBySchoolAndGrade/${schoolId}/${gradeId}`
-    //         );
-    //         setGroups(response.data.groups || []);
-    //     } catch (error) {
-    //         console.error("Error fetching groups:", error);
-    //         message.error("Failed to fetch groups for this school and grade");
-    //     }
-    // };
+    const fetchSubjectsBySchoolAndGrade = async (schoolId, gradeId) => {
+        if (!schoolId || !gradeId) return;
+
+        try {
+            const res = await axios.get(
+                `${process.env.REACT_APP_API_URL}/subject/getSubjectsBySchoolAndGrade/${schoolId}/${gradeId}`
+            );
+            const subjectList = res.data.subjects || [];
+            setSubjects(subjectList);
+            // FOR EDIT MODE
+            // Keep only subjects that exist in this grade
+            setSelectedSubjects((prevSelected) =>
+                prevSelected.filter((id) =>
+                    subjectList.some((sub) => String(sub.id) === String(id))
+                )
+            );
+
+        } catch (error) {
+            message.error("Failed to fetch subjects");
+        }
+    };
+
+    const fetchGroupsBySchoolAndGrade = async (schoolId, gradeId) => {
+        try {
+            const response = await axios.get(
+                `${process.env.REACT_APP_API_URL}/group/getGroupsBySchoolAndGrade/${schoolId}/${gradeId}`
+            );
+            setGroups(response.data.groups || []);
+        } catch (error) {
+            console.error("Error fetching groups:", error);
+            message.error("Failed to fetch groups for this school and grade");
+        }
+    };
 
     const handleSchoolChange = (selectedSchoolId) => {
         form.setFieldsValue({ grade_id: undefined, section_id: undefined });
@@ -157,7 +193,7 @@ const CreateStudenthsc = () => {
     const fetchGrades = async (selectedSchoolId) => {
         try {
             const response = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
             );
             setGrades(response.data.grades || []);
         } catch (error) {
@@ -294,12 +330,13 @@ const CreateStudenthsc = () => {
                 age: JSON.stringify(ageObj),
                 school_id: role === "superadmin" ? values.school_id : schoolId,
                 emisNum: values.emisNum ? String(values.emisNum).trim() : "",
+                group_subjects: JSON.stringify(values.group_subjects),
                 aadharNumber: values.aadharNumber ? String(values.aadharNumber).trim() : ""
             };
 
             const url = isEdit
-                ? `http://localhost:8080/studenthsc/updateStudenthsc/${id}`
-                : "http://localhost:8080/studenthsc/createStudenthsc";
+                ? `${process.env.REACT_APP_API_URL}/studenthsc/updateStudenthsc/${id}`
+                : `${process.env.REACT_APP_API_URL}/studenthsc/createStudenthsc`;
 
             await axios[isEdit ? "put" : "post"](url, payload);
 
@@ -323,12 +360,13 @@ const CreateStudenthsc = () => {
                 ...values,
                 dob: selectedDOB,
                 age: JSON.stringify(ageObj),
+                group_subjects: JSON.stringify(values.group_subjects),
                 school_id: role === "superadmin" ? values.school_id : schoolId
             };
 
             const url = isEdit
-                ? `http://localhost:8080/studenthsc/updateStudenthsc/${id}`
-                : "http://localhost:8080/studenthsc/createStudenthsc";
+                ? `${process.env.REACT_APP_API_URL}/studenthsc/updateStudenthsc/${id}`
+                : `${process.env.REACT_APP_API_URL}/studenthsc/createStudenthsc`;
 
             const response = await axios[isEdit ? "put" : "post"](url, payload);
             message.success(
@@ -434,7 +472,8 @@ const CreateStudenthsc = () => {
                             : user?.school?.id;
 
                         if (selectedSchoolId && gradeId) {
-                            fetchSections(selectedSchoolId, gradeId); // ✅ Only sections now
+                            fetchSections(selectedSchoolId, gradeId);
+                            fetchSubjectsBySchoolAndGrade(selectedSchoolId, gradeId);  // ✅ ADD THIS
                         }
                     }}
                 >
@@ -455,7 +494,45 @@ const CreateStudenthsc = () => {
                         </Select.Option>
                     ))}
                 </Select>
+            </Form.Item>
 
+            <Form.Item
+                label="Group"
+                name="group_subjects"
+                rules={[
+                    { required: true, message: "Please select at least one subject!" }
+                ]}
+            >
+                <Checkbox.Group
+                    value={selectedSubjects}   // ✅ IMPORTANT
+                    onChange={(checkedValues) => {
+                        setSelectedSubjects(checkedValues);
+                        form.setFieldsValue({ group_subjects: checkedValues });
+                    }}
+                    style={{ width: "100%" }}
+                >
+                    <div
+                        style={{
+                            border: "1px solid #d9d9d9",
+                            padding: "10px",
+                            borderRadius: "6px",
+                            maxHeight: "200px",
+                            overflowY: "auto"
+                        }}
+                    >
+                        {subjects.length > 0 ? (
+                            subjects.map(subject => (
+                                <div key={subject.id}>
+                                    <Checkbox value={subject.id}>
+                                        {subject.subjectName}
+                                    </Checkbox>
+                                </div>
+                            ))
+                        ) : (
+                            <p>No subjects available</p>
+                        )}
+                    </div>
+                </Checkbox.Group>
             </Form.Item>
 
             {/* <Form.Item label="Group" name="group_id" rules={[{ required: true, message: "Please select group!" }]}>

@@ -15,7 +15,7 @@ const EditSection = () => {
   useEffect(() => {
     const fetchSection = async () => {
       try {
-        const res = await axios.get(`http://localhost:8080/section/getAllSections`);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/section/getAllSections`);
         const section = res.data.sections.find((sec) => sec.id === parseInt(id));
         if (section) form.setFieldsValue(section);
       } catch {
@@ -31,7 +31,7 @@ const EditSection = () => {
   const handleUpdate = async (values) => {
     setSaving(true);
     try {
-      await axios.put(`http://localhost:8080/section/updateSection/${id}`, values);
+      await axios.put(`${process.env.REACT_APP_API_URL}/section/updateSection/${id}`, values);
       message.success("Section updated successfully!");
       navigate("/section");
     } catch (err) {

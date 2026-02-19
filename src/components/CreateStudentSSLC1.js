@@ -57,44 +57,44 @@ const CreateStudentsslc = ({ isEdit = false }) => {
         form.setFieldsValue({ academicHistory });
     }, [role, schoolId, academicHistory]);
 
-   useEffect(() => {
-           const loadData = async () => {
-               if (isEdit && id) {
-                   const response = await axios.get(`http://localhost:8080/studentsslc/getStudentsslcById/${id}`);
-                   const data = response.data.application;
-   
-                   // Ensure school data loaded first (so grades can load)
-                   if (role === "superadmin") {
-                       await fetchAllSchools();
-                       if (data.school_id) await fetchGrades(data.school_id);
-                   } else {
-                       await fetchGrades(schoolId);
-                   }
-   
-                   const ageParsed = typeof data.age === 'string' ? JSON.parse(data.age) : data.age;
-                   const historyParsed = typeof data.academicHistory === 'string' ? JSON.parse(data.academicHistory) : data.academicHistory;
-   
-                   form.setFieldsValue({
-                       ...data,
-                       age: ageParsed,
-                       academicHistory: historyParsed
-                   });
-   
-                   setDOB(data.dob);
-                   setAge(ageParsed);
-                   setAcademicHistory(historyParsed || []);
-   
-                   const grade = grades.find(g => g.id === data.grade_id);
-                   setSelectedGradeName(grade?.grade || '');
-               }
-           };
-   
-           loadData();
-       }, [isEdit, id]);
+    useEffect(() => {
+        const loadData = async () => {
+            if (isEdit && id) {
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`);
+                const data = response.data.application;
+
+                // Ensure school data loaded first (so grades can load)
+                if (role === "superadmin") {
+                    await fetchAllSchools();
+                    if (data.school_id) await fetchGrades(data.school_id);
+                } else {
+                    await fetchGrades(schoolId);
+                }
+
+                const ageParsed = typeof data.age === 'string' ? JSON.parse(data.age) : data.age;
+                const historyParsed = typeof data.academicHistory === 'string' ? JSON.parse(data.academicHistory) : data.academicHistory;
+
+                form.setFieldsValue({
+                    ...data,
+                    age: ageParsed,
+                    academicHistory: historyParsed
+                });
+
+                setDOB(data.dob);
+                setAge(ageParsed);
+                setAcademicHistory(historyParsed || []);
+
+                const grade = grades.find(g => g.id === data.grade_id);
+                setSelectedGradeName(grade?.grade || '');
+            }
+        };
+
+        loadData();
+    }, [isEdit, id]);
 
     useEffect(() => {
         if (isEdit && id) {
-            axios.get(`http://localhost:8080/studentsslc/getStudentsslcById/${id}`)
+            axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`)
                 .then(response => {
                     const data = response.data.application;
                     const parsedAge = typeof data.age === "string" ? JSON.parse(data.age) : data.age;
@@ -121,7 +121,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
 
     const fetchExistingApplication = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/studentsslc/getStudentsslcById/${id}`);
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`);
             const data = response.data.application;
 
             console.log("Fetched application data:", data);
@@ -159,7 +159,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
     };
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/school/getAllSchools");
+            const response = await axios.get("${process.env.REACT_APP_API_URL}/school/getAllSchools");
             setSchools(response.data.schools || []);
         } catch (error) {
             message.error("Failed to fetch schools");
@@ -179,7 +179,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
     const fetchGrades = async (selectedSchoolId) => {
         try {
             const response = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
             );
             setGrades(response.data.grades || []);
         } catch (error) {
@@ -246,25 +246,20 @@ const CreateStudentsslc = ({ isEdit = false }) => {
 
     const calculateAge = (dob) => {
         if (!dob) return { years: 0, months: 0, days: 0 };
-
         const today = new Date();
         const birthDate = new Date(dob);
-
         let years = today.getFullYear() - birthDate.getFullYear();
         let months = today.getMonth() - birthDate.getMonth();
         let days = today.getDate() - birthDate.getDate();
-
         if (months < 0 || (months === 0 && days < 0)) {
             years--;
             months += 12;
         }
-
         if (days < 0) {
             months--;
             const prevMonthDate = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
             days += prevMonthDate;
         }
-
         return { years, months, days };
     };
 
@@ -286,7 +281,6 @@ const CreateStudentsslc = ({ isEdit = false }) => {
         "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
         "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Others"
     ];
-
 
     const handleInputChange = (id, key, value) => {
         const updatedAcademicHistory = academicHistory.map((item) =>
@@ -327,7 +321,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
         return Promise.resolve();
     };
 
- const handleDraft = async () => {
+    const handleDraft = async () => {
         setLoading(true);
         const currentStepFields = stepFields.slice(0, currentStep + 1).flat();
         let values;
@@ -356,7 +350,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
                 school_id: role === "superadmin" ? values.school_id : schoolId
             };
 
-            const existing = await axios.get(`http://localhost:8080/studentsslc/getStudentsslcsBySchool/${schoolId}`);
+            const existing = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcsBySchool/${schoolId}`);
             const existingApps = existing.data.studentsslcs || [];
 
             const isDuplicateEmis = existingApps.some(app => app.emisNum === payload.emisNum && app.id !== id);
@@ -375,8 +369,8 @@ const CreateStudentsslc = ({ isEdit = false }) => {
             }
 
             const url = isEdit
-                ? `http://localhost:8080/studentsslc/updateStudentsslc/${id}`
-                : "http://localhost:8080/studentsslc/createStudentsslc";
+                ? `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${id}`
+                : "${process.env.REACT_APP_API_URL}/studentsslc/createStudentsslc";
 
             await axios[isEdit ? 'put' : 'post'](url, payload);
             message.success("Application saved successfully!");
@@ -389,9 +383,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
         setLoading(false);
     };
 
-
-
-   const handleSubmit = async () => {
+    const handleSubmit = async () => {
         setLoading(true);
         try {
             const values = await form.validateFields();
@@ -406,7 +398,7 @@ const CreateStudentsslc = ({ isEdit = false }) => {
 
             // Duplicate check (you may skip this in edit mode)
             if (!isEdit) {
-                const existing = await axios.get(`http://localhost:8080/studentsslc/getStudentsslcsBySchool/${schoolId}`);
+                const existing = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcsBySchool/${schoolId}`);
                 const existingApps = existing.data.applicationsslcs || [];
 
                 const isDuplicateEmis = existingApps.some(app => app.emisNum === payload.emisNum);
@@ -426,8 +418,8 @@ const CreateStudentsslc = ({ isEdit = false }) => {
             }
 
             const url = isEdit
-                ? `http://localhost:8080/studentsslc/updateStudentsslc/${id}`
-                : "http://localhost:8080/studentsslc/createStudentsslc";
+                ? `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${id}`
+                : "${process.env.REACT_APP_API_URL}/studentsslc/createStudentsslc";
 
             const response = await axios[isEdit ? "put" : "post"](url, payload);
 

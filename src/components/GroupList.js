@@ -23,14 +23,14 @@ const GroupList = () => {
             let response;
 
             if (role === "superadmin") {
-                response = await axios.get("http://localhost:8080/group/getAllGroups");
+                response = await axios.get("${process.env.REACT_APP_API_URL}/group/getAllGroups");
             } else {
                 const schoolId = user?.school?.id;
                 if (!schoolId) {
                     console.error("School ID is missing.");
                     return;
                 }
-                response = await axios.get(`http://localhost:8080/group/getGroupsBySchool/${schoolId}`);
+                response = await axios.get(`${process.env.REACT_APP_API_URL}/group/getGroupsBySchool/${schoolId}`);
             }
 
             const formattedGroups = response.data.groups?.map(group => ({
@@ -61,7 +61,7 @@ const GroupList = () => {
     cancelText: "No",
     onOk: async () => {
       try {
-        await axios.delete(`http://localhost:8080/group/deleteGroup/${groupId}`);
+        await axios.delete(`${process.env.REACT_APP_API_URL}/group/deleteGroup/${groupId}`);
         message.success("Group deleted successfully");
         fetchGroups();
       } catch (error) {

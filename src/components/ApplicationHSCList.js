@@ -24,14 +24,14 @@ const ApplicationHSCList = () => {
       let response;
 
       if (role === "superadmin") {
-        response = await axios.get("http://localhost:8080/applicationhsc/getAllApplicationhsc");
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/applicationhsc/getAllApplicationhsc`);
       } else {
         if (!schoolId) {
           console.error("School ID is missing");
           return;
         }
         response = await axios.get(
-          `http://localhost:8080/applicationhsc/getApplicationhscsBySchool/${schoolId}`
+          `${process.env.REACT_APP_API_URL}/applicationhsc/getApplicationhscsBySchool/${schoolId}`
         );
       }
       const formattedApplicationhscs = (response.data.applicationhscs || [])
@@ -80,7 +80,7 @@ const ApplicationHSCList = () => {
 
       // ✅ Call backend to admit the student
       const response = await axios.post(
-        `http://localhost:8080/applicationhsc/admit/${application.id}`
+        `${process.env.REACT_APP_API_URL}/applicationhsc/admit/${application.id}`
       );
 
       // ✅ Show admission number in success message
@@ -99,7 +99,7 @@ const ApplicationHSCList = () => {
     try {
       console.log("Viewing Application ID:", id); 
       const response = await axios.get(
-        `http://localhost:8080/applicationhsc/getApplicationhscById/${id}`
+        `${process.env.REACT_APP_API_URL}/applicationhsc/getApplicationhscById/${id}`
       );
 
       setSelectedApplication(response.data.application);
@@ -124,7 +124,7 @@ const ApplicationHSCList = () => {
 
     try {
       await axios.put(
-        `http://localhost:8080/applicationhsc/updateStatus/${id}`
+        `${process.env.REACT_APP_API_URL}/applicationhsc/updateStatus/${id}`
       );
 
       message.success("Application removed successfully");

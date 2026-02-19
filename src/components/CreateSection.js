@@ -11,6 +11,7 @@ const CreateSection = () => {
   const [schools, setSchools] = useState([]);
   const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(false);
+  // const [academicYear, setAcademicYear] = useState(null);
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -21,7 +22,7 @@ const CreateSection = () => {
     const fetchSchools = async () => {
       if (isSuperAdmin) {
         try {
-          const res = await axios.get("http://localhost:8080/school/getAllSchools");
+          const res = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
           setSchools(res.data.schools || []);
         } catch {
           message.error("Failed to load schools");
@@ -33,14 +34,38 @@ const CreateSection = () => {
     fetchSchools();
   }, [isSuperAdmin]);
 
-  const fetchGrades = async (schoolId) => {
+  // const fetchGrades = async (schoolId, year) => {
+  //   if (!year) return;
+
+  //   try {
+  //     const res = await axios.get(
+  //       `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`,
+  //       {
+  //         params: { academicYear: year }
+  //       }
+  //     );
+  //     setGrades(res.data.grades || []);
+  //   } catch {
+  //     message.error("Failed to load grades");
+  //   }
+  // };
+
+   const fetchGrades = async (schoolId) => {
     try {
-      const res = await axios.get(`http://localhost:8080/grade/getGradesBySchool/${schoolId}`);
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`);
       setGrades(res.data.grades || []);
     } catch {
       message.error("Failed to load grades");
     }
   };
+  
+  // const handleSchoolChange = () => {
+  //   form.setFieldsValue({
+  //     academicYear: undefined,
+  //     grade_id: undefined,
+  //   });
+  //   setGrades([]);
+  // };
 
   const handleSchoolChange = (schoolId) => {
     form.setFieldsValue({ grade_id: undefined });
@@ -56,7 +81,7 @@ const CreateSection = () => {
         status: 1,
       };
 
-      const res = await axios.post("http://localhost:8080/section/createSection", payload);
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/section/createSection`, payload);
       if (res.status === 201) {
         message.success("Section created successfully!");
         form.resetFields();
@@ -89,10 +114,41 @@ const CreateSection = () => {
           </Form.Item>
         )}
 
+        {/* <Form.Item
+          name="academicYear"
+          label="Academic Year"
+          rules={[{ required: true, message: "Select academic year" }]}
+        >
+          <Select
+            placeholder="Select academic year"
+            onChange={(year) => {
+              setGrades([]);
+              form.setFieldsValue({ grade_id: undefined });
+
+              const schoolId = isSuperAdmin
+                ? form.getFieldValue("school_id")
+                : user.school.id;
+
+              if (!schoolId) {
+                message.warning("Please select school first");
+                return;
+              }
+
+              fetchGrades(schoolId, year);
+            }}
+          >
+            <Option value="2024-2025">2024-2025</Option>
+            <Option value="2025-2026">2025-2026</Option>
+            <Option value="2026-2027">2026-2027</Option>
+          </Select>
+        </Form.Item> */}
+
         <Form.Item name="grade_id" label="Grade" rules={[{ required: true }]}>
           <Select placeholder="Select grade">
             {grades.map((g) => (
-              <Option key={g.id} value={g.id}>{g.grade}</Option>
+              <Option key={g.id} value={g.id}>
+                {g.grade}
+              </Option>
             ))}
           </Select>
         </Form.Item>

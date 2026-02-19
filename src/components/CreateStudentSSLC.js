@@ -68,7 +68,7 @@ const CreateStudentsslc = () => {
         const fetchStudentForEdit = async () => {
             try {
                 const res = await axios.get(
-                    `http://localhost:8080/studentsslc/getStudentsslcById/${id}`
+                    `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`
                 );
 
                 const data = res.data.application;
@@ -124,7 +124,7 @@ const CreateStudentsslc = () => {
 
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/school/getAllSchools");
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
             setSchools(response.data.schools || []);
         } catch (error) {
             message.error("Failed to fetch schools");
@@ -146,7 +146,7 @@ const CreateStudentsslc = () => {
 
         try {
             const res = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
             );
             setGrades(res.data.grades || []);
         } catch (error) {
@@ -158,7 +158,7 @@ const CreateStudentsslc = () => {
     const fetchSectionsBySchoolAndGrade = async (schoolId, gradeId) => {
         try {
             const response = await axios.get(
-                `http://localhost:8080/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
+                `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
             );
             setSections(response.data.sections || []);
         } catch (error) {
@@ -308,8 +308,8 @@ const CreateStudentsslc = () => {
             };
 
             const url = isEdit
-                ? `http://localhost:8080/studentsslc/updateStudentsslc/${id}`
-                : "http://localhost:8080/studentsslc/createStudentsslc";
+                ? `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${id}`
+                : `${process.env.REACT_APP_API_URL}/studentsslc/createStudentsslc`;
 
             await axios[isEdit ? "put" : "post"](url, payload);
 
@@ -343,8 +343,8 @@ const CreateStudentsslc = () => {
             };
 
             const url = isEdit
-                ? `http://localhost:8080/studentsslc/updateStudentsslc/${id}`
-                : "http://localhost:8080/studentsslc/createStudentsslc";
+                ? `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${id}`
+                : `${process.env.REACT_APP_API_URL}/studentsslc/createStudentsslc`;
 
             const response = await axios[isEdit ? "put" : "post"](url, payload);
 

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Sidebar from "./Sidebar";
+import { message, Modal, Descriptions } from "antd";
+import { EyeOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 
 const GradeList = () => {
   const [grades, setGrades] = useState([]);
@@ -9,6 +11,8 @@ const GradeList = () => {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
+  const [selectedGrade, setSelectedGrade] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
     fetchGrades();
@@ -18,12 +22,12 @@ const GradeList = () => {
     try {
       let response;
       if (role === "superadmin") {
-        response = await axios.get("http://localhost:8080/grade/getAllGrades");
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/grade/getAllGrades`);
       } else {
         const schoolId = user?.school?.id;
         if (!schoolId) return;
         response = await axios.get(
-          `http://localhost:8080/grade/getGradesBySchool/${schoolId}`
+          `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`
         );
       }
       setGrades(response.data.grades || []);
@@ -37,14 +41,21 @@ const GradeList = () => {
   const handleDelete = async (gradeId) => {
     if (window.confirm("Are you sure you want to delete this grade?")) {
       try {
-        await axios.delete(`http://localhost:8080/grade/deleteGrade/${gradeId}`);
-        alert("Grade deleted successfully");
-        fetchGrades(); // Refresh after delete
+        await axios.delete(
+          `${process.env.REACT_APP_API_URL}/grade/deleteGrade/${gradeId}`
+        );
+
+        message.success("Grade deleted successfully");
+        fetchGrades();
       } catch (error) {
-        console.error("Error deleting grade:", error);
-        alert("Failed to delete grade");
+        message.error("Failed to delete grade");
       }
     }
+  };
+
+  const handleView = (grade) => {
+    setSelectedGrade(grade);
+    setIsModalVisible(true);
   };
 
   if (loading) return <p>Loading grades...</p>;
@@ -69,7 +80,7 @@ const GradeList = () => {
                 <th>S.No</th>
                 <th>School</th>
                 <th>Grade</th>
-                <th>Actions</th>
+                <th style={{ textAlign: "center" }}>Actions</th>
               </tr>
             </thead>
 
@@ -84,13 +95,47 @@ const GradeList = () => {
                         : user.school?.name || "N/A"}
                     </td>
                     <td>{grade.grade}</td>
-                    <td>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(grade.id)}
+                    <td style={{ textAlign: "center" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          gap: "12px",
+                        }}
                       >
-                        Delete
-                      </button>
+                        {/* VIEW */}
+                        <EyeOutlined
+                          title="View Grade"
+                          style={{
+                            fontSize: 18,
+                            color: "#003366",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => handleView(grade)}
+                        />
+
+                        {/* EDIT */}
+                        <EditOutlined
+                          title="Edit Grade"
+                          style={{
+                            fontSize: 18,
+                            color: "#1890ff",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => navigate(`/edit-grade/${grade.id}`)}
+                        />
+
+                        {/* DELETE */}
+                        <DeleteOutlined
+                          title="Delete Grade"
+                          style={{
+                            fontSize: 18,
+                            color: "#e21216",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => handleDelete(grade.id)}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -104,6 +149,27 @@ const GradeList = () => {
             </tbody>
           </table>
         </div>
+        {/* VIEW MODAL */}
+        {selectedGrade && (
+          <Modal
+            title="Grade Details"
+            open={isModalVisible}
+            onCancel={() => setIsModalVisible(false)}
+            footer={null}
+          >
+            <Descriptions bordered column={1}>
+              <Descriptions.Item label="School">
+                {role === "superadmin"
+                  ? selectedGrade.School?.name || "N/A"
+                  : user.school?.name || "N/A"}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Grade">
+                {selectedGrade.grade}
+              </Descriptions.Item>
+            </Descriptions>
+          </Modal>
+        )}
       </div>
     </div>
   );

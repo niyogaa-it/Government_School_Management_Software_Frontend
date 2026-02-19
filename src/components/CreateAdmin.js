@@ -22,14 +22,14 @@ const CreateAdmin = () => {
             try {
                 // Fetch all schools if superadmin
                 if (isSuperAdmin) {
-                    const schoolsResponse = await axios.get("http://localhost:8080/school/getAllSchools");
+                    const schoolsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
                     setSchools(schoolsResponse.data.schools || []);
                 }
 
                 // Fetch initial roles based on user type
                 if (user?.school?.id) {
                     const rolesResponse = await axios.get(
-                        `http://localhost:8080/role/getRolesBySchool/${user.school.id}`
+                        `${process.env.REACT_APP_API_URL}/role/getRolesBySchool/${user.school.id}`
                     );
                     setRoles(rolesResponse.data.roles || []);
                 }
@@ -46,7 +46,7 @@ const CreateAdmin = () => {
         setLoading(true);
         try {
             const response = await axios.get(
-                `http://localhost:8080/role/getRolesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/role/getRolesBySchool/${selectedSchoolId}`
             );
             setRoles(response.data.roles || []);
             form.setFieldsValue({ school_id: selectedSchoolId });
@@ -66,7 +66,7 @@ const CreateAdmin = () => {
             };
 
             const response = await axios.post(
-                "http://localhost:8080/admin/createAdmin",
+                "${process.env.REACT_APP_API_URL}/admin/createAdmin",
                 payload
             );
 

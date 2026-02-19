@@ -57,7 +57,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
     useEffect(() => {
         const loadData = async () => {
             if (isEdit && id) {
-                const response = await axios.get(`http://localhost:8080/applicationsslc/getApplicationsslcById/${id}`);
+                const response = await axios.get(`${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcById/${id}`);
                 const data = response.data.application;
 
                 // Ensure school data loaded first (so grades can load)
@@ -91,7 +91,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
 
     const fetchExistingApplication = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/applicationsslc/getApplicationsslcById/${id}`);
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcById/${id}`);
             const data = response.data.application;
 
             console.log("Fetched application data:", data);
@@ -118,7 +118,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
     };
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/school/getAllSchools");
+            const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
             setSchools(response.data.schools || []);
         } catch (error) {
             message.error("Failed to fetch schools");
@@ -146,7 +146,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
     const fetchGrades = async (selectedSchoolId) => {
         try {
             const response = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
             );
             setGrades(response.data.grades || []);
         } catch (error) {
@@ -298,7 +298,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
                 aadharNumber: values.aadharNumber ? String(values.aadharNumber).trim() : ""
             };
 
-            const existing = await axios.get(`http://localhost:8080/applicationsslc/getApplicationsslcsBySchool/${schoolId}`);
+            const existing = await axios.get(`${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcsBySchool/${schoolId}`);
             const existingApps = existing.data.applicationsslcs || [];
 
             const isDuplicateEmis = existingApps.some(app => app.emisNum === payload.emisNum && app.id !== id);
@@ -317,8 +317,8 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
             }
 
             const url = isEdit
-                ? `http://localhost:8080/applicationsslc/updateApplicationsslc/${id}`
-                : "http://localhost:8080/applicationsslc/createApplicationsslc";
+                ? `${process.env.REACT_APP_API_URL}/applicationsslc/updateApplicationsslc/${id}`
+                : `${process.env.REACT_APP_API_URL}/applicationsslc/createApplicationsslc`;
 
             await axios[isEdit ? 'put' : 'post'](url, payload);
             message.success("Application saved successfully!");
@@ -347,7 +347,7 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
 
             // Duplicate check (you may skip this in edit mode)
             if (!isEdit) {
-                const existing = await axios.get(`http://localhost:8080/applicationsslc/getApplicationsslcsBySchool/${schoolId}`);
+                const existing = await axios.get(`${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcsBySchool/${schoolId}`);
                 const existingApps = existing.data.applicationsslcs || [];
 
                 const isDuplicateEmis = existingApps.some(app => app.emisNum === payload.emisNum);
@@ -367,8 +367,8 @@ const CreateApplicationsslc = ({ isEdit = false }) => {
             }
 
             const url = isEdit
-                ? `http://localhost:8080/applicationsslc/updateApplicationsslc/${id}`
-                : "http://localhost:8080/applicationsslc/createApplicationsslc";
+                ? `${process.env.REACT_APP_API_URL}/applicationsslc/updateApplicationsslc/${id}`
+                : `${process.env.REACT_APP_API_URL}/applicationsslc/createApplicationsslc`;
 
             const response = await axios[isEdit ? "put" : "post"](url, payload);
 

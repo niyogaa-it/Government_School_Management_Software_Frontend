@@ -14,7 +14,7 @@ const CreateSchool = () => {
     setLoading(true);
     try {
       const response = await axios.post(
-        "http://localhost:8080/school/createSchool",
+        `${process.env.REACT_APP_API_URL}/school/createSchool`,
         values
       );
 
@@ -70,6 +70,13 @@ const CreateSchool = () => {
           rules={[{ required: true, message: "Please enter a short code!" }]}
         >
           <Input placeholder="Enter short code" />
+        </Form.Item>
+
+        <Form.Item label="Phone Number" name="phoneNumber" rules={[
+          { required: true, message: "Enter Phone Number!" },
+          { pattern: /^[0-9]{10}$/, message: "Enter a valid 10-digit number!" }
+        ]}>
+          <Input />
         </Form.Item>
 
         <Form.Item

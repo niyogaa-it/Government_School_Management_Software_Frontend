@@ -20,7 +20,7 @@ const CreateGroup = () => {
         const fetchData = async () => {
             if (isSuperAdmin) {
                 try {
-                    const schoolsResponse = await axios.get("http://localhost:8080/school/getAllSchools");
+                    const schoolsResponse = await axios.get("${process.env.REACT_APP_API_URL}/school/getAllSchools");
                     setSchools(schoolsResponse.data.schools || []);
                 } catch (error) {
                     message.error("Failed to fetch schools");
@@ -45,7 +45,7 @@ const CreateGroup = () => {
 
         try {
             const response = await axios.get(
-                `http://localhost:8080/grade/getGradesBySchool/${schoolId}`
+                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`
             );
             const fetchedGrades = response.data.grades || [];
 
@@ -69,7 +69,7 @@ const CreateGroup = () => {
 
             // ✅ Fetch existing groups for this school
             const response = await axios.get(
-                `http://localhost:8080/group/getGroupsBySchool/${schoolId}`
+                `${process.env.REACT_APP_API_URL}/group/getGroupsBySchool/${schoolId}`
             );
 
             const existingGroups = response.data.groups || [];
@@ -94,7 +94,7 @@ const CreateGroup = () => {
             };
 
             const createRes = await axios.post(
-                "http://localhost:8080/group/createGroup",
+                "${process.env.REACT_APP_API_URL}/group/createGroup",
                 payload
             );
 

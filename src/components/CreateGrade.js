@@ -20,7 +20,7 @@ const CreateGrade = () => {
     const fetchSchools = async () => {
       if (isSuperAdmin) {
         try {
-          const response = await axios.get("http://localhost:8080/school/getAllSchools");
+          const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
           setSchools(response.data.schools || []);
         } catch (error) {
           message.error("Failed to fetch schools");
@@ -38,7 +38,7 @@ const CreateGrade = () => {
         school_id: isSuperAdmin ? values.school_id : user.school.id,
       };
 
-      const response = await axios.post("http://localhost:8080/grade/createGrade", payload);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/grade/createGrade`, payload);
 
       if (response.status === 201) {
         message.success("Grade created successfully!");

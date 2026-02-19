@@ -74,7 +74,7 @@ const StudentSSLCList = () => {
 
   const fetchGrades = async (schoolId) => {
     try {
-      const response = await axios.get(`http://localhost:8080/grade/getGradesBySchool/${schoolId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`);
       setGrades(response.data.grades || []);
     } catch (error) {
       console.error("Error fetching grades:", error);
@@ -101,7 +101,7 @@ const StudentSSLCList = () => {
 
     try {
       const response = await axios.get(
-        `http://localhost:8080/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
+        `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
       );
       setSections(response.data.sections || []);
     } catch (error) {
@@ -130,7 +130,7 @@ const StudentSSLCList = () => {
 
       if (role === "superadmin") {
         response = await axios.get(
-          "http://localhost:8080/studentsslc/getAllStudentsslc"
+          `${process.env.REACT_APP_API_URL}/studentsslc/getAllStudentsslc`
         );
       } else {
         if (!schoolId) {
@@ -138,7 +138,7 @@ const StudentSSLCList = () => {
           return;
         }
         response = await axios.get(
-          `http://localhost:8080/studentsslc/getStudentsslcsBySchool/${schoolId}`
+          `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcsBySchool/${schoolId}`
         );
       }
 
@@ -177,7 +177,7 @@ const StudentSSLCList = () => {
   const handleView = async (id) => {
     try {
       const response = await axios.get(
-        `http://localhost:8080/studentsslc/getStudentsslcById/${id}`
+        `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`
       );
       setSelectedApplication(response.data.application);
       setIsModalVisible(true);
@@ -191,7 +191,7 @@ const StudentSSLCList = () => {
       const values = await editForm.validateFields();
 
       await axios.put(
-        `http://localhost:8080/studentsslc/updateStudentsslc/${editFormData.id}`,
+        `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${editFormData.id}`,
         values
       );
 
@@ -239,7 +239,7 @@ const StudentSSLCList = () => {
 
     try {
       await axios.put(
-        `http://localhost:8080/studentsslc/updateStatus/${id}`
+        `${process.env.REACT_APP_API_URL}/studentsslc/updateStatus/${id}`
       );
 
       message.success("Application removed successfully");

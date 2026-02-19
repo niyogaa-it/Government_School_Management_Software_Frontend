@@ -23,14 +23,14 @@ const ApplicationSSLCList = () => {
       let response;
 
       if (role === "superadmin") {
-        response = await axios.get("http://localhost:8080/applicationsslc/getAllApplicationsslc");
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/applicationsslc/getAllApplicationsslc`);
       } else {
         if (!schoolId) {
           console.error("School ID is missing");
           return;
         }
         response = await axios.get(
-          `http://localhost:8080/applicationsslc/getApplicationsslcsBySchool/${schoolId}`
+          `${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcsBySchool/${schoolId}`
         );
       }
 
@@ -80,7 +80,7 @@ const ApplicationSSLCList = () => {
 
       // ✅ Call backend to admit the student
       const response = await axios.post(
-        `http://localhost:8080/applicationsslc/admit/${application.id}`
+        `${process.env.REACT_APP_API_URL}/applicationsslc/admit/${application.id}`
       );
 
       // ✅ Show admission number in success message
@@ -99,7 +99,7 @@ const ApplicationSSLCList = () => {
     try {
       console.log("Viewing Application ID:", id); 
       const response = await axios.get(
-        `http://localhost:8080/applicationsslc/getApplicationsslcById/${id}`
+        `${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcById/${id}`
       );
       setSelectedApplication(response.data.application);
       setIsModalVisible(true);
@@ -122,7 +122,7 @@ const ApplicationSSLCList = () => {
 
     try {
       await axios.put(
-        `http://localhost:8080/applicationsslc/updateStatus/${id}`
+        `${process.env.REACT_APP_API_URL}/applicationsslc/updateStatus/${id}`
       );
 
       message.success("Application removed successfully");

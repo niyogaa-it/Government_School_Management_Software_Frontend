@@ -15,7 +15,7 @@ const EditAdmin = () => {
   useEffect(() => {
     const fetchAdmin = async () => {
       try {
-        const res = await axios.get(`http://localhost:8080/admin/getAdminById/${id}`);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/admin/getAdminById/${id}`);
         const a = res.data.admin;
         form.setFieldsValue({
           name: a.name || "",
@@ -37,7 +37,7 @@ const EditAdmin = () => {
   const handleSubmit = async (values) => {
     setSaving(true);
     try {
-      await axios.put(`http://localhost:8080/admin/updateAdmin/${id}`, values);
+      await axios.put(`${process.env.REACT_APP_API_URL}/admin/updateAdmin/${id}`, values);
       message.success("Admin updated successfully!");
       navigate("/admin");
     } catch (err) {

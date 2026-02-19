@@ -90,11 +90,6 @@ const Sidebar = ({ onLogout }) => {
                                 <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Subjects</span>
                             </Link>
                         </li>
-                        <li>
-                            <Link to="/group">
-                                <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Groups</span>
-                            </Link>
-                        </li>
                     </>
                 )}
 

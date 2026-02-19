@@ -14,6 +14,7 @@ const StudentHSCList = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
   const schoolId = user?.school?.id;
+  const [subjects, setSubjects] = useState([]);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editForm] = Form.useForm();
   const [editFormData, setEditFormData] = useState({});
@@ -95,9 +96,18 @@ const StudentHSCList = () => {
     }
   };
 
+  const fetchAllSubjects = async () => {
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/subject/getAllSubjects`);
+      setSubjects(response.data.subjects || []);
+    } catch (error) {
+      console.error("Failed to fetch subjects", error);
+    }
+  };
+
   const fetchSections = async (gradeId) => {
     try {
-      const response = await axios.get(`http://localhost:8080/section/getSectionsByGrade/${gradeId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/section/getSectionsByGrade/${gradeId}`);
       setSections(response.data.sections || []);
     } catch (error) {
       console.error("Failed to fetch sections", error);
@@ -106,7 +116,7 @@ const StudentHSCList = () => {
 
   const fetchGroups = async (gradeId) => {
     try {
-      const response = await axios.get(`http://localhost:8080/group/getGroupsByGrade/${gradeId}`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/group/getGroupsByGrade/${gradeId}`);
       setGroups(response.data.groups || []);
     } catch (error) {
       console.error("Failed to fetch groups", error);
@@ -131,8 +141,31 @@ const StudentHSCList = () => {
     return { years, months, days };
   };
 
+  const getSubjectNames = (groupSubjects) => {
+    if (!groupSubjects) return "N/A";
+
+    let ids = [];
+
+    try {
+      ids = typeof groupSubjects === "string"
+        ? JSON.parse(groupSubjects)
+        : groupSubjects;
+    } catch (err) {
+      return "N/A";
+    }
+
+    const names = ids
+      .map(id => {
+        return subjects.find(sub => String(sub.id) === String(id))?.subjectName;
+      })
+      .filter(Boolean);
+
+    return names.length > 0 ? names.join(", ") : "N/A";
+  };
+
   useEffect(() => {
     fetchStudenthscs();
+    fetchAllSubjects();
   }, [role, schoolId]);
 
   const fetchStudenthscs = async () => {
@@ -140,14 +173,14 @@ const StudentHSCList = () => {
       let response;
 
       if (role === "superadmin") {
-        response = await axios.get("http://localhost:8080/studenthsc/getAllStudenthsc");
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/studenthsc/getAllStudenthsc`);
       } else {
         if (!schoolId) {
           console.error("School ID is missing");
           return;
         }
         response = await axios.get(
-          `http://localhost:8080/studenthsc/getStudenthscsBySchool/${schoolId}`
+          `${process.env.REACT_APP_API_URL}/studenthsc/getStudenthscsBySchool/${schoolId}`
         );
       }
 
@@ -169,11 +202,18 @@ const StudentHSCList = () => {
 
   const handleView = async (id) => {
     try {
-      const response = await axios.get(`http://localhost:8080/studenthsc/getStudenthscById/${id}`);
+      // Make sure subjects are loaded
+      if (subjects.length === 0) {
+        await fetchAllSubjects();
+      }
+
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/studenthsc/getStudenthscById/${id}`
+      );
+
       setSelectedApplication(response.data.application);
       setIsModalVisible(true);
     } catch (error) {
-      console.error("Failed to fetch application details", error);
       message.error("Failed to fetch application details");
     }
   };
@@ -192,7 +232,7 @@ const StudentHSCList = () => {
 
       const values = await editForm.validateFields();
 
-      await axios.put(`http://localhost:8080/studenthsc/updateStudenthsc/${editFormData.id}`, {
+      await axios.put(`${process.env.REACT_APP_API_URL}/studenthsc/updateStudenthsc/${editFormData.id}`, {
         ...editFormData,
         ...values
       });
@@ -212,7 +252,7 @@ const StudentHSCList = () => {
     if (!confirmDelete) return;
 
     try {
-      await axios.put(`http://localhost:8080/studenthsc/updateStatus/${id}`);
+      await axios.put(`${process.env.REACT_APP_API_URL}/studenthsc/updateStatus/${id}`);
 
       message.success("Application removed successfully");
 
@@ -231,13 +271,37 @@ const StudentHSCList = () => {
     return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}, ${days} day${days !== 1 ? 's' : ''}`;
   };
 
+  const getSubjectNamesForPrint = (groupSubjects, subjects) => {
+    if (!groupSubjects) return "N/A";
+
+    let ids = [];
+
+    try {
+      ids = typeof groupSubjects === "string"
+        ? JSON.parse(groupSubjects)
+        : groupSubjects;
+    } catch (error) {
+      return "N/A";
+    }
+
+    const names = ids
+      .map(id =>
+        subjects.find(sub => String(sub.id) === String(id))?.subjectName
+      )
+      .filter(Boolean);
+
+    return names.length > 0 ? names.join(", ") : "N/A";
+  };
+
   // Function to handle print click
-  const handlePrintClick = (application) => {
+  const handlePrintClick = async (application) => {
     if (!application) {
       message.error("No application data found for printing.");
       return;
     }
-
+    if (subjects.length === 0) {
+      await fetchAllSubjects();
+    }
     const printContent = preparePrintContent(application);
     const printWindow = window.open('', '_blank');
     printWindow.document.title = 'Application Details';
@@ -298,8 +362,12 @@ const StudentHSCList = () => {
 			<td>${selectedApplication.grade}</td>
 		</tr>
 		<tr>
-  <td><strong>Section:</strong></td>
-  <td>${selectedApplication.Section?.sectionName || "N/A"}</td>
+      <td><strong>Section:</strong></td>
+      <td>${selectedApplication.Section?.sectionName || "N/A"}</td>
+   </tr>
+	<tr>
+      <td><strong>Group:</strong></td>
+      <td>${getSubjectNamesForPrint(selectedApplication.group_subjects, subjects)}</td>
 </tr>
 		<tr>
         <td><strong>Date of Birth:</strong></td>
@@ -607,6 +675,9 @@ const StudentHSCList = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Section">
               {selectedApplication.Section?.sectionName || "N/A"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Group">
+              {getSubjectNames(selectedApplication.group_subjects)}
             </Descriptions.Item>
             <Descriptions.Item label="Date of Birth">
               {selectedApplication.dob}

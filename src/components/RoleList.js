@@ -22,13 +22,13 @@ const RoleList = () => {
     try {
       let response;
       if (roleName === "superadmin") {
-        response = await axios.get("http://localhost:8080/role/getAllRoles");
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/role/getAllRoles`);
         const filteredRoles = response.data.roles.filter(
           (role) => role.roleOfUser?.toLowerCase().replace(/\s+/g, "") !== "superadmin"
         );
         setRoles(filteredRoles);
       } else if (schoolId) {
-        response = await axios.get(`http://localhost:8080/role/getRolesBySchool/${schoolId}`);
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/role/getRolesBySchool/${schoolId}`);
         setRoles(response.data.roles || []);
       }
     } catch (error) {
@@ -42,12 +42,12 @@ const RoleList = () => {
   const handleDelete = async (roleId) => {
     if (window.confirm("Are you sure you want to delete this role?")) {
       try {
-        await axios.delete(`http://localhost:8080/role/deleteRole/${roleId}`);
-        message.success("Role deleted successfully");         
+        await axios.delete(`${process.env.REACT_APP_API_URL}/role/deleteRole/${roleId}`);
+        message.success("Role deleted successfully");
         fetchRoles(); // Refresh list
       } catch (error) {
         console.error("Error deleting role:", error.response?.data || error.message);
-        message.error("Failed to delete role"); 
+        message.error("Failed to delete role");
       }
     }
   };
@@ -72,8 +72,8 @@ const RoleList = () => {
             <thead className="table-dark">
               <tr>
                 <th>S.No</th>
-                <th>Role Name</th>
                 <th>School</th>
+                <th>Role Name</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -82,12 +82,12 @@ const RoleList = () => {
                 roles.map((role, index) => (
                   <tr key={role.id}>
                     <td>{index + 1}</td>
-                    <td>{role.roleOfUser}</td>
                     <td>
                       {roleName === "superadmin"
                         ? role.School?.name || "N/A"
                         : user.school?.name || "N/A"}
                     </td>
+                    <td>{role.roleOfUser}</td>
                     <td>
                       <DeleteOutlined
                         style={{

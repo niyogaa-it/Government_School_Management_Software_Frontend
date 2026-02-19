@@ -24,7 +24,7 @@ const SidebarSettings = () => {
 
   // Fetch roles
   useEffect(() => {
-    axios.get("http://localhost:8080/role/getAllRoles").then((res) => {
+    axios.get(`${process.env.REACT_APP_API_URL}/role/getAllRoles`).then((res) => {
       setRoles(res.data.roles || []);
     });
   }, []);
@@ -36,7 +36,7 @@ const SidebarSettings = () => {
       setRoleName(selected?.roleOfUser || "");
 
       axios
-        .get(`http://localhost:8080/sidebar-permissions/${selectedRoleId}`)
+        .get(`${process.env.REACT_APP_API_URL}/sidebar-permissions/${selectedRoleId}`)
         .then((res) => {
           const map = {};
           if (Array.isArray(res.data.permissions)) {
@@ -81,7 +81,7 @@ const SidebarSettings = () => {
   
     axios
       .post(
-        `http://localhost:8080/sidebar-permissions/${selectedRoleId}`,
+        `${process.env.REACT_APP_API_URL}/sidebar-permissions/${selectedRoleId}`,
         payload
       )
       .then(() => {
