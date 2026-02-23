@@ -97,7 +97,7 @@ const ApplicationSSLCList = () => {
 
   const handleView = async (id) => {
     try {
-      console.log("Viewing Application ID:", id); 
+      console.log("Viewing Application ID:", id);
       const response = await axios.get(
         `${process.env.REACT_APP_API_URL}/applicationsslc/getApplicationsslcById/${id}`
       );
@@ -201,13 +201,14 @@ const ApplicationSSLCList = () => {
 
                           {/* ADMIT SLOT (always reserved) */}
                           <div style={iconSlotStyle}>
-                            {progress === 100 && role === "superadmin" && (
-                              <CheckCircleOutlined
-                                title="Admit Student"
-                                style={{ fontSize: 20, color: "#52c41a", cursor: "pointer" }}
-                                onClick={() => handleAdmit(app)}
-                              />
-                            )}
+                            {progress === 100 &&
+                              (role === "superadmin" || role === "schooladmin") && (
+                                <CheckCircleOutlined
+                                  title="Admit Student"
+                                  style={{ fontSize: 20, color: "#52c41a", cursor: "pointer" }}
+                                  onClick={() => handleAdmit(app)}
+                                />
+                              )}
                           </div>
 
                           {/* VIEW */}
