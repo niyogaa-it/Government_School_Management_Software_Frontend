@@ -126,15 +126,17 @@ const GradeList = () => {
                         />
 
                         {/* DELETE */}
-                        <DeleteOutlined
-                          title="Delete Grade"
-                          style={{
-                            fontSize: 18,
-                            color: "#e21216",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => handleDelete(grade.id)}
-                        />
+                        {role === "superadmin" && (
+                          <DeleteOutlined
+                            title="Delete Grade"
+                            style={{
+                              fontSize: 18,
+                              color: "#e21216",
+                              cursor: "pointer",
+                            }}
+                            onClick={() => handleDelete(grade.id)}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
