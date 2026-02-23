@@ -34,6 +34,10 @@ import SubjectList from "./components/SubjectList";
 import EditSubject from "./components/EditSubject";
 import EditGrade from "./components/EditGrade";
 import EditSchool from "./components/EditSchool";
+import FeeCollectionList from "./components/Feecollectionlist";
+import FeeStructure from "./components/feeStructure";
+import StudentFeeCollection from "./components/StudentFeeCollection";
+import RaiseFeeDemand from "./components/RaiseFeeDemand";
 // import PromoteStudentModal from "./components/PromoteStudentModal";
 
 
@@ -100,6 +104,10 @@ const App = () => {
           <Route path="/edit-studenthsc/:id" element={<CreateStudenthsc isEdit={true} />} />
           <Route path="/edit-subject/:id" element={<EditSubject />} />
           <Route path="/edit-grade/:id" element={<EditGrade />} />
+          <Route path="/feeDemand" element={<RaiseFeeDemand/>} />
+          <Route path="/raiseFeeDemand" element={<FeeStructure />} />
+          <Route path="/annualfee" element={<FeeCollectionList/>} />
+          <Route path="/studentfee" element={<StudentFeeCollection />} />
         </Route>
 
 
