@@ -88,7 +88,17 @@ const CreateStudentsslc = () => {
                     school_id: data.school_id
                 });
 
-                // ✅ set STATE values (THIS WAS MISSING)
+                // ✅ Load Academic History
+                if (data.academicHistory) {
+                    const parsedHistory =
+                        typeof data.academicHistory === "string"
+                            ? JSON.parse(data.academicHistory)
+                            : data.academicHistory;
+
+                    setAcademicHistory(parsedHistory);
+                }
+
+                // ✅ set STATE values
                 setDOB(dobValue);
                 setAge(parsedAge);
 
@@ -304,7 +314,8 @@ const CreateStudentsslc = () => {
                 ...values,
                 dob: values.dob,
                 age: JSON.stringify(ageObj),
-                school_id: role === "superadmin" ? values.school_id : schoolId
+                school_id: role === "superadmin" ? values.school_id : schoolId,
+                academicHistory: JSON.stringify(academicHistory),
             };
 
             const url = isEdit
@@ -339,7 +350,8 @@ const CreateStudentsslc = () => {
                 ...values,
                 dob: selectedDOB,
                 age: JSON.stringify(ageObj),
-                school_id: role === "superadmin" ? values.school_id : schoolId
+                school_id: role === "superadmin" ? values.school_id : schoolId,
+                academicHistory: JSON.stringify(academicHistory),
             };
 
             const url = isEdit
