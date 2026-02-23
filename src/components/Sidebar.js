@@ -113,6 +113,7 @@ const Sidebar = ({ onLogout }) => {
                                         <span>HSC</span>
                                     </Link>
                                 </li>
+                            
                             </ul>
                         )}
                     </li>
@@ -138,28 +139,27 @@ const Sidebar = ({ onLogout }) => {
                                         <span>HSC</span>
                                     </Link>
                                 </li>
+                        
                             </ul>
                         )}
                     </li>
                 )}
 
-                {(userRole === "superadmin" || userRole === "schooladmin" || userRole === "teacher" || userRole === "accounts") && (
+               {(userRole === "superadmin" || userRole === "schooladmin" || userRole === "teacher" || userRole === "accounts") && (
                     <>
-                        <li>
-                            <Link to="/raise-fee-demand">
-                                <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Raise Fee Demand</span>
+                        
+                         
+                          <li>
+                            <Link to="/annualfee">
+                                <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Student Fee</span>
                             </Link>
                         </li>
-                        {/* <li>
-                            <Link to="/create-subject">
-                                <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Subject</span>
+                          <li>
+                            <Link to="/raiseFeeDemand">
+                                <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Annual Fee</span>
                             </Link>
                         </li>
-                        <li>
-                            <Link to="/create-teacher">
-                                <FaUserTag /> <span className={isOpen ? "visible" : "hidden"}>Teacher</span>
-                            </Link>
-                        </li> */}
+                       
                     </>
                 )}
 
