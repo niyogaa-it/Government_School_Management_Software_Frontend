@@ -421,6 +421,7 @@ const CreateStudenthsc = () => {
                     id="academicYear"
                 >
                     <Option value="2025-2026">2025-2026</Option>
+                     <Option value="2026-2027">2026-2027</Option>
                 </Select>
             </Form.Item>
             <Form.Item
