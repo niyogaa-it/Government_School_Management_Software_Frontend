@@ -141,7 +141,7 @@ const CreateRole = () => {
                             onClick={handleCancel}
                             disabled={loading}
                             style={{
-                                width: "48%",
+                                width: "80%",
                                 backgroundColor: "#faad14",
                                 color: "#fff",
                                 border: "none",
@@ -154,7 +154,7 @@ const CreateRole = () => {
                             type="primary"
                             htmlType="submit"
                             loading={loading}
-                            style={{ width: "48%" }}
+                            style={{ width: "90%" }}
                         >
                             Create Role
                         </Button>
