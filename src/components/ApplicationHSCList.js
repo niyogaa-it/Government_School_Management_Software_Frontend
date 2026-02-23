@@ -202,7 +202,8 @@ const ApplicationHSCList = () => {
                         <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
                           {/* ADMIT SLOT (always reserved) */}
                           <div style={iconSlotStyle}>
-                            {progress === 100 && role === "superadmin" && (
+                            {progress === 100 && 
+                            (role === "superadmin" || role === "schooladmin") && (
                               <CheckCircleOutlined
                                 title="Admit Student"
                                 style={{ fontSize: 20, color: "#52c41a", cursor: "pointer" }}
