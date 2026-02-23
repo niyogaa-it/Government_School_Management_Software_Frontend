@@ -148,15 +148,17 @@ const AdminList = () => {
                                                 />
 
                                                 {/* DELETE */}
-                                                <DeleteOutlined
-                                                    title="Delete User"
-                                                    style={{
-                                                        fontSize: 18,
-                                                        color: "#e21216",
-                                                        cursor: "pointer",
-                                                    }}
-                                                    onClick={() => handleDelete(admin.id)}
-                                                />
+                                                {role === "superadmin" && (
+                                                    <DeleteOutlined
+                                                        title="Delete User"
+                                                        style={{
+                                                            fontSize: 18,
+                                                            color: "#e21216",
+                                                            cursor: "pointer",
+                                                        }}
+                                                        onClick={() => handleDelete(admin.id)}
+                                                    />
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
