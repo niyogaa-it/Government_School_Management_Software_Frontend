@@ -85,89 +85,91 @@ const SectionList = () => {
                     <td>{s.sectionName}</td>
                     <td>{s.shortCode}</td>
                     <td style={{ textAlign: "center" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: "10px",
-                      }}
-                    >
-                      {/* VIEW */}
-                      <EyeOutlined
-                        title="View Section"
+                      <div
                         style={{
-                          fontSize: 18,
-                          color: "#003366",
-                          cursor: "pointer",
+                          display: "flex",
+                          justifyContent: "center",
+                          gap: "10px",
                         }}
-                        onClick={() => handleView(s)}
-                      />
+                      >
+                        {/* VIEW */}
+                        <EyeOutlined
+                          title="View Section"
+                          style={{
+                            fontSize: 18,
+                            color: "#003366",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => handleView(s)}
+                        />
 
-                      {/* EDIT */}
-                      <EditOutlined
-                        title="Edit Section"
-                        style={{
-                          fontSize: 18,
-                          color: "#1890ff",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => navigate(`/edit-section/${s.id}`)}
-                      />
+                        {/* EDIT */}
+                        <EditOutlined
+                          title="Edit Section"
+                          style={{
+                            fontSize: 18,
+                            color: "#1890ff",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => navigate(`/edit-section/${s.id}`)}
+                        />
 
-                      {/* DELETE */}
-                      <DeleteOutlined
-                        title="Delete Section"
-                        style={{
-                          fontSize: 18,
-                          color: "#e21216",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => handleDelete(s.id)}
-                      />
-                    </div>
-                  </td>
+                        {/* DELETE */}
+                        {role === "superadmin" && (
+                          <DeleteOutlined
+                            title="Delete Section"
+                            style={{
+                              fontSize: 18,
+                              color: "#e21216",
+                              cursor: "pointer",
+                            }}
+                            onClick={() => handleDelete(s.id)}
+                          />
+                        )}
+                      </div>
+                    </td>
                   </tr>
-            ))
-            ) : (
-            <tr>
-              <td colSpan="6" className="text-center">
-                No sections found
-              </td>
-            </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="text-center">
+                    No sections found
+                  </td>
+                </tr>
               )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+        {/* ✅ VIEW MODAL */}
+        {selectedSection && (
+          <Modal
+            title="Section Details"
+            open={isModalVisible}
+            onCancel={() => setIsModalVisible(false)}
+            footer={null}
+          >
+            <Descriptions bordered column={1}>
+              <Descriptions.Item label="School">
+                {role === "superadmin"
+                  ? selectedSection.School?.name
+                  : user.school?.name}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Grade">
+                {selectedSection.Grade?.grade || "N/A"}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Section Name">
+                {selectedSection.sectionName}
+              </Descriptions.Item>
+
+              <Descriptions.Item label="Short Code">
+                {selectedSection.shortCode}
+              </Descriptions.Item>
+            </Descriptions>
+          </Modal>
+        )}
       </div>
-      {/* ✅ VIEW MODAL */}
-{selectedSection && (
-  <Modal
-    title="Section Details"
-    open={isModalVisible}
-    onCancel={() => setIsModalVisible(false)}
-    footer={null}
-  >
-    <Descriptions bordered column={1}>
-      <Descriptions.Item label="School">
-        {role === "superadmin"
-          ? selectedSection.School?.name
-          : user.school?.name}
-      </Descriptions.Item>
-
-      <Descriptions.Item label="Grade">
-        {selectedSection.Grade?.grade || "N/A"}
-      </Descriptions.Item>
-
-      <Descriptions.Item label="Section Name">
-        {selectedSection.sectionName}
-      </Descriptions.Item>
-
-      <Descriptions.Item label="Short Code">
-        {selectedSection.shortCode}
-      </Descriptions.Item>
-    </Descriptions>
-  </Modal>
-)}
-    </div>
     </div >
   );
 };
