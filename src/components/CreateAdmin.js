@@ -66,7 +66,7 @@ const CreateAdmin = () => {
             };
 
             const response = await axios.post(
-                "${process.env.REACT_APP_API_URL}/admin/createAdmin",
+                `${process.env.REACT_APP_API_URL}/admin/createAdmin`,
                 payload
             );
 
