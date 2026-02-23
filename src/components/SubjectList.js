@@ -148,15 +148,19 @@ const SubjectList = () => {
 
                         {/* DELETE */}
                         <div style={iconSlotStyle}>
-                          <DeleteOutlined
-                            title="Delete Subject"
-                            style={{
-                              fontSize: 18,
-                              color: "#e21216",
-                              cursor: "pointer",
-                            }}
-                            onClick={() => handleDelete(s.id)}
-                          />
+                          <div style={iconSlotStyle}>
+                            {role === "superadmin" && (
+                              <DeleteOutlined
+                                title="Delete Subject"
+                                style={{
+                                  fontSize: 18,
+                                  color: "#e21216",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => handleDelete(s.id)}
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
