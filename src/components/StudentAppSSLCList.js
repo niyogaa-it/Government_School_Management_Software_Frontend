@@ -223,8 +223,8 @@ const StudentSSLCList = () => {
       message.error("No application data found for printing.");
       return;
     }
-
     const printContent = preparePrintContent(application);
+    
     const printWindow = window.open('', '_blank');
     printWindow.document.title = 'Application Details';
     printWindow.document.write(printContent);
@@ -717,8 +717,19 @@ const StudentSSLCList = () => {
               <Descriptions.Item label="Is parent consent Hardcopy is attached?">
                 {selectedApplication.parentconsentform}
               </Descriptions.Item>
-              <Descriptions.Item label="Student's Academic History">
-                {selectedApplication.academicHistory}
+              <Descriptions.Item label="Student's Academic History" span={2}>
+                {selectedApplication.academicHistory &&
+                  (typeof selectedApplication.academicHistory === "string"
+                    ? JSON.parse(selectedApplication.academicHistory)
+                    : selectedApplication.academicHistory
+                  ).map((item, index) => (
+                    <div key={index} style={{ marginBottom: 10 }}>
+                      <b>School Name:</b> {item.schoolName} <br />
+                      <b>Standard:</b> {item.standard} <br />
+                      <b>Duration:</b> {item.duration}
+                      <hr />
+                    </div>
+                  ))}
               </Descriptions.Item>
               <Descriptions.Item label="Has He/ She passed in the last class studied?">
                 {selectedApplication.passorfail}
