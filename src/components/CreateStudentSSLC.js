@@ -34,7 +34,12 @@ const CreateStudentsslc = () => {
     const [age, setAge] = useState({ years: 0, months: 0, days: 0 });
     const [selectedGradeName, setSelectedGradeName] = useState('');
     const [academicHistory, setAcademicHistory] = useState([
-        { id: 1, schoolName: '', standard: '', duration: '' },
+        {
+            id: Date.now(),
+            schoolName: "",
+            standard: "",
+            duration: ""
+        }
     ]);
 
     const stepFields = [
@@ -88,15 +93,41 @@ const CreateStudentsslc = () => {
                     school_id: data.school_id
                 });
 
-                // ✅ Load Academic History
-                if (data.academicHistory) {
-                    const parsedHistory =
-                        typeof data.academicHistory === "string"
-                            ? JSON.parse(data.academicHistory)
-                            : data.academicHistory;
+                let historyArray = [];
 
-                    setAcademicHistory(parsedHistory);
+                if (data.academicHistory) {
+                    try {
+                        const parsedHistory =
+                            typeof data.academicHistory === "string"
+                                ? JSON.parse(data.academicHistory)
+                                : data.academicHistory;
+
+                        if (Array.isArray(parsedHistory)) {
+                            historyArray = parsedHistory.map((item, index) => ({
+                                id: item.id || Date.now() + index,
+                                schoolName: item.schoolName || "",
+                                standard: item.standard || "",
+                                duration: item.duration || ""
+                            }));
+                        }
+                    } catch (error) {
+                        historyArray = [];
+                    }
                 }
+
+                // If empty, add one default row
+                if (historyArray.length === 0) {
+                    historyArray = [
+                        {
+                            id: Date.now(),
+                            schoolName: "",
+                            standard: "",
+                            duration: ""
+                        }
+                    ];
+                }
+
+                setAcademicHistory(historyArray);
 
                 // ✅ set STATE values
                 setDOB(dobValue);
@@ -256,28 +287,22 @@ const CreateStudentsslc = () => {
     ];
 
 
-    const handleInputChange = (id, key, value) => {
-        const updatedAcademicHistory = academicHistory.map((item) =>
-            item.id === id ? { ...item, [key]: value } : item
-        );
-        setAcademicHistory(updatedAcademicHistory);
+    const handleInputChange = (index, field, value) => {
+        const updatedHistory = [...academicHistory];
+        updatedHistory[index][field] = value;
+        setAcademicHistory(updatedHistory);
     };
 
     const handleAddRow = () => {
-        if (academicHistory.length < 4) {
-            const newRow = {
-                id: academicHistory.length + 1,
-                schoolName: '',
-                standard: '',
-                duration: '',
-            };
-            setAcademicHistory([...academicHistory, newRow]);
-        }
+        setAcademicHistory([
+            ...academicHistory,
+            { schoolName: "", standard: "", duration: "" }
+        ]);
     };
 
-    const handleRemoveRow = (id) => {
-        const updatedAcademicHistory = academicHistory.filter((item) => item.id !== id);
-        setAcademicHistory(updatedAcademicHistory);
+    const handleRemoveRow = (index) => {
+        const updatedHistory = academicHistory.filter((_, i) => i !== index);
+        setAcademicHistory(updatedHistory);
     };
 
     const validateAccountNumber = (_, value) => {
@@ -337,6 +362,8 @@ const CreateStudentsslc = () => {
 
         setLoading(false);
     };
+
+
 
     const handleSubmit = async () => {
         setLoading(true);
@@ -412,7 +439,7 @@ const CreateStudentsslc = () => {
                     id="academicYear"
                 >
                     <Option value="2025-2026">2025-2026</Option>
-                     <Option value="2026-2027">2026-2027</Option>
+                    <Option value="2026-2027">2026-2027</Option>
                 </Select>
             </Form.Item>
             <Form.Item
@@ -832,47 +859,65 @@ const CreateStudentsslc = () => {
         // Step 3: Academic Details
         <>
             <Form.Item label="Student's Academic History">
-                {academicHistory.map((item) => (
-                    <Row gutter={16} key={item.id} style={{ marginBottom: 8 }}>
+
+                {(Array.isArray(academicHistory) ? academicHistory : []).map((item, index) => (
+                    <Row gutter={16} key={item.id || index} style={{ marginBottom: 8 }}>
+
                         <Col span={6}>
                             <Input
                                 placeholder="Last School Name"
-                                value={item.schoolName}
+                                value={item.schoolName || ""}
                                 onChange={(e) =>
-                                    handleInputChange(item.id, 'schoolName', e.target.value)
+                                    handleInputChange(index, "schoolName", e.target.value)
                                 }
                             />
                         </Col>
+
                         <Col span={6}>
                             <Input
                                 placeholder="Standard"
-                                value={item.standard}
+                                value={item.standard || ""}
                                 onChange={(e) =>
-                                    handleInputChange(item.id, 'standard', e.target.value)} />
+                                    handleInputChange(index, "standard", e.target.value)
+                                }
+                            />
                         </Col>
+
                         <Col span={6}>
                             <Input
                                 placeholder="Year (From & To)"
-                                value={item.duration}
+                                value={item.duration || ""}
                                 onChange={(e) =>
-                                    handleInputChange(item.id, 'duration', e.target.value)} />
+                                    handleInputChange(index, "duration", e.target.value)
+                                }
+                            />
                         </Col>
+
                         <Col span={6}>
-                            {academicHistory.length > 1 && (
-                                <Button type="link" onClick={() => handleRemoveRow(item.id)}>
+                            {Array.isArray(academicHistory) && academicHistory.length > 1 && (
+                                <Button
+                                    type="link"
+                                    onClick={() => handleRemoveRow(index)}
+                                >
                                     Remove
                                 </Button>
                             )}
                         </Col>
+
                     </Row>
                 ))}
+
                 <Button
                     type="dashed"
                     onClick={handleAddRow}
-                    disabled={academicHistory.length >= 4}
+                    disabled={
+                        !Array.isArray(academicHistory) ||
+                        academicHistory.length >= 4
+                    }
                 >
                     Add Row
                 </Button>
+
             </Form.Item>
             <Form.Item
                 name="passorfail"
