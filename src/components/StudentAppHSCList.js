@@ -358,9 +358,9 @@ const StudentHSCList = () => {
 			<td>${selectedApplication.gender}</td>
 		</tr>
 		<tr>
-			<td><strong>Grade:</strong></td>
-			<td>${selectedApplication.grade}</td>
-		</tr>
+  <td><strong>Grade:</strong></td>
+  <td>${selectedApplication.Grade?.grade || "N/A"}</td>
+</tr>
 		<tr>
       <td><strong>Section:</strong></td>
       <td>${selectedApplication.Section?.sectionName || "N/A"}</td>
