@@ -149,10 +149,11 @@ const StudentSSLCList = () => {
           Grade: studentsslc.Grade || { grade: "N/A" },
           Section: studentsslc.Section || { sectionName: "N/A" }
         }));
-      const sortedStudenthscs = formattedStudentsslcs.sort(
+      const sortedStudents = formattedStudentsslcs.sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
-      setStudentsslcs(formattedStudentsslcs);
+
+      setStudentsslcs(sortedStudents);
     } catch (error) {
       console.error("Error fetching Students:", error);
       message.error(
@@ -218,17 +219,30 @@ const StudentSSLCList = () => {
   };
 
   // Function to handle print click
-  const handlePrintClick = (application) => {
-    if (!application) {
-      message.error("No application data found for printing.");
-      return;
+  const handlePrintClick = async (id) => {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`
+      );
+
+      const application = response.data.application;
+
+      if (!application) {
+        message.error("No application data found for printing.");
+        return;
+      }
+
+      const printContent = preparePrintContent(application);
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.title = 'Application Details';
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+
+    } catch (error) {
+      message.error("Failed to fetch student data for print");
     }
-    const printContent = preparePrintContent(application);
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.title = 'Application Details';
-    printWindow.document.write(printContent);
-    printWindow.print();
   };
 
   const handleDelete = async (id, name) => {
@@ -446,10 +460,45 @@ const StudentSSLCList = () => {
 </table>
 	<h2>Academic Details</h2>
 <table border="1" cellpadding="5" cellspacing="0">
-   <tr>
-	<td><strong>Student's Academic History</strong></td>
-	<td>${selectedApplication.academicHistory}</td>
+<tr>
+      <td colspan="2"><strong>Student's Academic History</strong></td>
+   </tr>
+<tr>
+  <th>School Name</th>
+  <th>Standard</th>
+  <th>Duration</th>
 </tr>
+
+${(() => {
+
+        let history = selectedApplication?.academicHistory;
+
+        if (!history || history === "") {
+          return `<tr><td colspan="3">No Academic History</td></tr>`;
+        }
+
+        // Convert string to array
+        if (typeof history === "string") {
+          try {
+            history = JSON.parse(history);
+          } catch (e) {
+            return `<tr><td colspan="3">Invalid Academic History Data</td></tr>`;
+          }
+        }
+
+        if (!Array.isArray(history) || history.length === 0) {
+          return `<tr><td colspan="3">No Academic History</td></tr>`;
+        }
+
+        return history.map(item => `
+    <tr>
+      <td>${item?.schoolName || ""}</td>
+      <td>${item?.standard || ""}</td>
+      <td>${item?.duration || ""}</td>
+    </tr>
+  `).join("");
+
+      })()}
 <tr>
 	<td><strong>Has He/ She passed in the last class studied?</strong></td>
 	<td>${selectedApplication.passorfail}</td>
@@ -556,7 +605,7 @@ const StudentSSLCList = () => {
                           <PrinterOutlined
                             title="Print Student Details"
                             style={{ fontSize: 18, color: "rgb(194, 92, 32)", cursor: "pointer" }}
-                            onClick={() => handlePrintClick(student)}
+                            onClick={() => handlePrintClick(student.id)}
                           />
                         </div>
 
@@ -718,18 +767,32 @@ const StudentSSLCList = () => {
                 {selectedApplication.parentconsentform}
               </Descriptions.Item>
               <Descriptions.Item label="Student's Academic History" span={2}>
-                {selectedApplication.academicHistory &&
-                  (typeof selectedApplication.academicHistory === "string"
-                    ? JSON.parse(selectedApplication.academicHistory)
-                    : selectedApplication.academicHistory
-                  ).map((item, index) => (
+                {(() => {
+                  let history = selectedApplication?.academicHistory;
+
+                  if (!history) return "No Academic History";
+
+                  if (typeof history === "string") {
+                    try {
+                      history = JSON.parse(history);
+                    } catch (err) {
+                      return "Invalid Academic History Data";
+                    }
+                  }
+
+                  if (!Array.isArray(history)) {
+                    history = [history];
+                  }
+
+                  return history.map((item, index) => (
                     <div key={index} style={{ marginBottom: 10 }}>
-                      <b>School Name:</b> {item.schoolName} <br />
-                      <b>Standard:</b> {item.standard} <br />
-                      <b>Duration:</b> {item.duration}
+                      <b>School Name:</b> {item?.schoolName || "N/A"} <br />
+                      <b>Standard:</b> {item?.standard || "N/A"} <br />
+                      <b>Duration:</b> {item?.duration || "N/A"}
                       <hr />
                     </div>
-                  ))}
+                  ));
+                })()}
               </Descriptions.Item>
               <Descriptions.Item label="Has He/ She passed in the last class studied?">
                 {selectedApplication.passorfail}
