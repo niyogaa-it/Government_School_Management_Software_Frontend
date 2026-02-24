@@ -314,10 +314,10 @@ const StudentSSLCList = () => {
 			<td><strong>Gender:</strong></td>
 			<td>${selectedApplication.gender}</td>
 		</tr>
-		<tr>
-			<td><strong>Grade:</strong></td>
-			<td>${selectedApplication.grade}</td>
-		</tr>
+	<tr>
+  <td><strong>Grade:</strong></td>
+  <td>${selectedApplication.Grade?.grade || "N/A"}</td>
+</tr>
 		<tr>
   <td><strong>Section:</strong></td>
   <td>${selectedApplication.Section?.sectionName || "N/A"}</td>
@@ -327,9 +327,9 @@ const StudentSSLCList = () => {
         <td>${selectedApplication.dob}</td>
     </tr>
 		<tr>
-        <td><strong>Age:</strong></td>
-        <td>${selectedApplication.age}</td>
-    </tr>
+  <td><strong>Age:</strong></td>
+  <td>${formatAge(selectedApplication.age)}</td>
+</tr>
     <tr>
         <td><strong>Nationality:</strong></td>
         <td>${selectedApplication.nationality}</td>
