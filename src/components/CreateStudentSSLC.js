@@ -1,1064 +1,818 @@
-import { useNavigate, useParams } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Button, Form, Input, Spin, Typography, message, Select, Radio, Steps, Card, Row, Col, Progress } from 'antd';
+import { useParams, useNavigate } from "react-router-dom";
+import { Form, Input, message, Select, Radio, Steps, Progress } from "antd";
+import Layout from "./Layout";
 
-
-const { Title } = Typography;
-const { Step } = Steps;
 const { Option } = Select;
 
-const CreateStudentsslc = () => {
+/* ── Design tokens ── */
+const COLOR = {
+    blue: "#1e40af", blueLt: "#3b82f6", text: "#1e293b", textMid: "#475569",
+    textSoft: "#64748b", border: "#e2e8f0", headBg: "#1a2236",
+    danger: "#e21216", success: "#16a34a", draft: "#d97706",
+    draftBg: "#fff7ed", draftBorder: "#fde68a", bg: "#f8fafc",
+};
+const FF = "'Segoe UI', system-ui, sans-serif";
 
+const STEPS = [
+    "Academic Details",
+    "Student Information",
+    "Parent Information",
+    "General Information",
+    "Bank Details",
+];
+
+/* ── Helper: always return a safe array from academicHistory ── */
+const safeHistory = (raw) => {
+    if (!raw) return [{ id: 1, schoolName: "", standard: "", duration: "" }];
+    if (Array.isArray(raw)) return raw.length ? raw : [{ id: 1, schoolName: "", standard: "", duration: "" }];
+    if (typeof raw === "string") {
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) && parsed.length
+                ? parsed
+                : [{ id: 1, schoolName: "", standard: "", duration: "" }];
+        } catch { return [{ id: 1, schoolName: "", standard: "", duration: "" }]; }
+    }
+    return [{ id: 1, schoolName: "", standard: "", duration: "" }];
+};
+
+/* ── Reusable small button ── */
+const ActionBtn = ({ children, onClick, variant = "default", disabled = false }) => {
+    const [hov, setHov] = React.useState(false);
+    const S = {
+        default: { bg: "#f1f5f9", col: COLOR.textMid, border: `1px solid ${COLOR.border}`, hov: "#e2e8f0" },
+        primary: { bg: COLOR.blue, col: "#fff", border: "none", hov: "#1a3580" },
+        danger: { bg: COLOR.danger, col: "#fff", border: "none", hov: "#b91c1c" },
+        draft: { bg: COLOR.draftBg, col: COLOR.draft, border: `1px solid ${COLOR.draftBorder}`, hov: "#fef3c7" },
+        success: { bg: COLOR.success, col: "#fff", border: "none", hov: "#15803d" },
+    };
+    const s = S[variant] || S.default;
+    return (
+        <button type="button" onClick={onClick} disabled={disabled}
+            onMouseEnter={() => !disabled && setHov(true)}
+            onMouseLeave={() => setHov(false)}
+            style={{
+                all: "unset", display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "6px 14px", borderRadius: 7, fontSize: "12.5px", fontWeight: 600,
+                cursor: disabled ? "not-allowed" : "pointer",
+                background: disabled ? "#e2e8f0" : hov ? s.hov : s.bg,
+                color: disabled ? "#94a3b8" : s.col,
+                border: s.border, transition: "all 0.15s", whiteSpace: "nowrap",
+            }}>
+            {children}
+        </button>
+    );
+};
+
+/* ── Full-width Form.Item ── */
+const FI = ({ label, name, rules, children, extra, hidden }) => (
+    <Form.Item label={label} name={name} rules={rules} extra={extra} hidden={hidden}
+        style={{ width: "100%", marginBottom: 16 }}
+        labelCol={{ style: { fontWeight: 600, fontSize: "13px", color: COLOR.textMid, paddingBottom: 3 } }}>
+        {children}
+    </Form.Item>
+);
+
+/* ── Section header bar ── */
+const SectionHead = ({ title }) => (
+    <div style={{
+        fontSize: 13, fontWeight: 700, color: COLOR.headBg,
+        padding: "7px 12px", background: COLOR.bg,
+        borderLeft: `4px solid ${COLOR.blue}`,
+        borderRadius: 5, marginBottom: 14, marginTop: 6, letterSpacing: "0.3px",
+    }}>{title}</div>
+);
+
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════ */
+const CreateStudentsslc = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
     const [form] = Form.useForm();
+    const isEdit = Boolean(id);
+
     const [loading, setLoading] = useState(false);
     const [grades, setGrades] = useState([]);
     const [sections, setSections] = useState([]);
-    const { id } = useParams();
-    const isEdit = Boolean(id);
+    const [schools, setSchools] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
     const [progressColor, setProgressColor] = useState("#ff4d4f");
+
     const user = JSON.parse(localStorage.getItem("user"));
     const schoolId = user?.school?.id;
-    const [schools, setSchools] = useState([]);
     const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
-    const navigate = useNavigate();
-    const steps = [
-        'Academic Details',
-        'Student Information',
-        'Parent Information',
-        'General Information',
-        'Bank Details'
-    ];
-    const [dob, setDOB] = useState('');
+
+    const [dob, setDOB] = useState("");
     const [age, setAge] = useState({ years: 0, months: 0, days: 0 });
-    const [selectedGradeName, setSelectedGradeName] = useState('');
+    const [selectedGradeName, setSelectedGradeName] = useState("");
     const [academicHistory, setAcademicHistory] = useState([
-        {
-            id: Date.now(),
-            schoolName: "",
-            standard: "",
-            duration: ""
-        }
+        { id: 1, schoolName: "", standard: "", duration: "" }
     ]);
 
-    const stepFields = [
-        ['school_id', 'academicYear', 'dateofjoin', 'emisNum', 'aadharNumber'], // Step 0
-        ['name', 'gender', 'grade_id', 'section_id', 'dob', 'age', 'nationality', 'state', 'motherTongue', 'hometown', 'religion', 'community', 'caste',
-            'tribecommunity', 'exgratiasalary', 'religionchanging', 'living', 'vaccinated', 'identificationmarks', 'bloodGroup', 'physical', 'physicalDetails'], // Step 1
-        ['fatherName', 'motherName', 'fatherOccupation', 'motherOccupation', 'fatherIncome', 'motherIncome', 'address', 'pincode', 'telephoneNumber',
-            'mobileNumber', 'guardianName', 'guardianOccupation', 'guardianAddress', 'guardianNumber', 'parentconsentform'],  // Step 2
-        ['academicHistory', 'passorfail', 'tceslc', 'firstLanguage'], // Step 3
-        ['bankName', 'branchName', 'accountNumber', 'ifsccode'] // Step 4
-    ];
+    const stepColors = ["#ff4d4f", "#ffa940", "#faad14", "#52c41a", "#1e40af"];
+
+    useEffect(() => { setProgressColor(stepColors[currentStep] || "#1e40af"); }, [currentStep]);
 
     useEffect(() => {
         if (role === "superadmin") {
             fetchAllSchools();
-        } else if (schoolId) {
-            fetchGrades(schoolId);
         }
         form.setFieldsValue({ academicHistory });
-    }, [role, schoolId, academicHistory]);
+    }, [role, schoolId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-    useEffect(() => {
-        const colors = ["#ff4d4f", "#ffa940", "#faad14", "#52c41a"];
-        setProgressColor(colors[currentStep]);
-    }, [currentStep]);
-
+    /* ── Load edit data ── */
     useEffect(() => {
         if (!id) return;
-
         const fetchStudentForEdit = async () => {
             try {
                 const res = await axios.get(
                     `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`
                 );
-
                 const data = res.data.application;
-
                 const dobValue = data.dob ? data.dob.split("T")[0] : "";
+
                 const parsedAge =
                     typeof data.age === "string"
                         ? JSON.parse(data.age)
                         : calculateAge(dobValue);
 
-                // ✅ set FORM values
                 form.setFieldsValue({
                     ...data,
                     dob: dobValue,
                     grade_id: data.grade_id || data.Grade?.id,
                     section_id: data.section_id || data.Section?.id,
-                    school_id: data.school_id
+                    school_id: data.school_id,
                 });
 
-                let historyArray = [];
-
-                if (data.academicHistory) {
-                    try {
-                        const parsedHistory =
-                            typeof data.academicHistory === "string"
-                                ? JSON.parse(data.academicHistory)
-                                : data.academicHistory;
-
-                        if (Array.isArray(parsedHistory)) {
-                            historyArray = parsedHistory.map((item, index) => ({
-                                id: item.id || Date.now() + index,
-                                schoolName: item.schoolName || "",
-                                standard: item.standard || "",
-                                duration: item.duration || ""
-                            }));
-                        }
-                    } catch (error) {
-                        historyArray = [];
-                    }
-                }
-
-                // If empty, add one default row
-                if (historyArray.length === 0) {
-                    historyArray = [
-                        {
-                            id: Date.now(),
-                            schoolName: "",
-                            standard: "",
-                            duration: ""
-                        }
-                    ];
-                }
-
-                setAcademicHistory(historyArray);
-
-                // ✅ set STATE values
+                const historyParsed = safeHistory(data.academicHistory);
+                setAcademicHistory(historyParsed);
                 setDOB(dobValue);
                 setAge(parsedAge);
 
-                // Load dependent dropdowns
-                if (data.school_id) {
-                    await fetchGrades(data.school_id);
-                }
-
-                if (data.school_id && data.grade_id) {
+                if (data.school_id) await fetchGrades(data.school_id, data.academicYear);
+                if (data.school_id && data.grade_id)
                     fetchSectionsBySchoolAndGrade(data.school_id, data.grade_id);
-                }
-
-            } catch (error) {
+            } catch {
                 message.error("Failed to load student data");
             }
         };
-
         fetchStudentForEdit();
-    }, [id]);
+    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-    const handleSchoolChange = (selectedSchoolId) => {
-        // Reset grade and section fields
-        form.setFieldsValue({ grade_id: undefined, section_id: undefined });
-
-        // Clear previous state
-        setGrades([]);
-        setSections([]);
-
-        // Fetch new grades for the selected school
-        fetchGrades(selectedSchoolId);
-    };
-
+    /* ── API helpers ── */
     const fetchAllSchools = async () => {
         try {
-            const response = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
-            setSchools(response.data.schools || []);
-        } catch (error) {
-            message.error("Failed to fetch schools");
-        }
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/school/getAllSchools`);
+            setSchools(res.data.schools || []);
+        } catch { message.error("Failed to fetch schools"); }
     };
 
-    const handleNext = () => {
-        form.validateFields().then(() => {
-            setCurrentStep(currentStep + 1);
-        });
+    const fetchGrades = async (sid, year) => {
+        if (!sid) return;
+        try {
+            const url = year
+                ? `${process.env.REACT_APP_API_URL}/grade/getGradesBySchoolAndYear/${sid}/${year}`
+                : `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${sid}`;
+            const res = await axios.get(url);
+            setGrades(res.data.grades || []);
+        } catch { setGrades([]); }
     };
 
-    const handlePrev = () => {
-        setCurrentStep(currentStep - 1);
-    };
-
-    const fetchGrades = async (selectedSchoolId) => {
-        if (!selectedSchoolId) return;
-
+    const fetchSectionsBySchoolAndGrade = async (sid, gid) => {
         try {
             const res = await axios.get(
-                `${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${selectedSchoolId}`
+                `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${sid}/${gid}`
             );
-            setGrades(res.data.grades || []);
-        } catch (error) {
-            console.error("Error fetching grades:", error);
-            message.error("Failed to fetch grades");
+            setSections(res.data.sections || []);
+        } catch {
+            message.error("Failed to fetch sections");
         }
     };
 
-    const fetchSectionsBySchoolAndGrade = async (schoolId, gradeId) => {
-        try {
-            const response = await axios.get(
-                `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
-            );
-            setSections(response.data.sections || []);
-        } catch (error) {
-            console.error("Error fetching sections:", error);
-            message.error("Failed to fetch sections for this school and grade");
-        }
+    const handleSchoolChange = (sid) => {
+        form.setFieldsValue({ grade_id: undefined, section_id: undefined });
+        setGrades([]); setSections([]);
+        const year = form.getFieldValue("academicYear");
+        fetchGrades(sid, year);
     };
 
-    const validateDOB = (_, value) => {
-        const gradeId = form.getFieldValue("grade_id");
-
-        if (!value || !gradeId) {
-            return Promise.reject("Please select grade before DOB");
-        }
-
-        const grade = grades.find(g => g.id === gradeId);
-        const gradeName = grade?.grade;
-
-        if (!gradeName) return Promise.resolve();
-
-        const currentYear = new Date().getFullYear();
-        let minYear, maxYear;
-
-        switch (gradeName) {
-            case 'I': minYear = currentYear - 8; maxYear = currentYear - 5; break;
-            case 'II': minYear = currentYear - 9; maxYear = currentYear - 6; break;
-            case 'III': minYear = currentYear - 10; maxYear = currentYear - 7; break;
-            case 'IV': minYear = currentYear - 11; maxYear = currentYear - 8; break;
-            case 'V': minYear = currentYear - 12; maxYear = currentYear - 9; break;
-            case 'VI': minYear = currentYear - 13; maxYear = currentYear - 10; break;
-            case 'VII': minYear = currentYear - 14; maxYear = currentYear - 11; break;
-            case 'VIII': minYear = currentYear - 15; maxYear = currentYear - 12; break;
-            case 'IX': minYear = currentYear - 16; maxYear = currentYear - 13; break;
-            case 'X': minYear = currentYear - 17; maxYear = currentYear - 14; break;
-            default:
-                return Promise.resolve();
-        }
-
-        const selectedYear = new Date(value).getFullYear();
-        if (selectedYear < minYear || selectedYear > maxYear) {
-            return Promise.reject(`DOB doesn't match Grade ${gradeName}`);
-        }
-
-        return Promise.resolve();
+    const handleAcademicYearChange = (year) => {
+        form.setFieldsValue({ grade_id: undefined, section_id: undefined });
+        setGrades([]); setSections([]);
+        const sid = role === "superadmin" ? form.getFieldValue("school_id") : schoolId;
+        if (sid) fetchGrades(sid, year);
     };
 
-    const calculateAge = (dob) => {
-        if (!dob) return { years: 0, months: 0, days: 0 };
-
-        const today = new Date();
-        const birthDate = new Date(dob);
-
-        let years = today.getFullYear() - birthDate.getFullYear();
-        let months = today.getMonth() - birthDate.getMonth();
-        let days = today.getDate() - birthDate.getDate();
-
-        if (months < 0 || (months === 0 && days < 0)) {
-            years--;
-            months += 12;
-        }
-
-        if (days < 0) {
-            months--;
-            const prevMonthDate = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-            days += prevMonthDate;
-        }
-
+    /* ── Age helpers ── */
+    const calculateAge = (dobVal) => {
+        if (!dobVal) return { years: 0, months: 0, days: 0 };
+        const today = new Date(), birth = new Date(dobVal);
+        let years = today.getFullYear() - birth.getFullYear();
+        let months = today.getMonth() - birth.getMonth();
+        let days = today.getDate() - birth.getDate();
+        if (months < 0 || (months === 0 && days < 0)) { years--; months += 12; }
+        if (days < 0) { months--; days += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
         return { years, months, days };
     };
-
     const formatAge = ({ years, months, days }) => {
-        let ageString = '';
-        if (years > 0) ageString += `${years} year${years > 1 ? 's' : ''}`;
-        if (months > 0) ageString += `${ageString ? ', ' : ''}${months} month${months > 1 ? 's' : ''}`;
-        if (days > 0) ageString += `${ageString ? ', ' : ''}${days} day${days > 1 ? 's' : ''}`;
-        return ageString || '0 days';
+        let s = "";
+        if (years > 0) s += `${years} year${years > 1 ? "s" : ""}`;
+        if (months > 0) s += `${s ? ", " : ""}${months} month${months > 1 ? "s" : ""}`;
+        if (days > 0) s += `${s ? ", " : ""}${days} day${days > 1 ? "s" : ""}`;
+        return s || "0 days";
     };
 
-    const statesinindia = [
-        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-        "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-        "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
-        "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
-        "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Others"
+    /* ── Validators ── */
+    const validateDOB = (_, value) => {
+        const gradeId = form.getFieldValue("grade_id");
+        if (!value || !gradeId) return Promise.reject("Please select grade before DOB");
+        const grade = grades.find(g => g.id === gradeId);
+        const gradeName = grade?.grade;
+        if (!gradeName) return Promise.resolve();
+        const cy = new Date().getFullYear();
+        const map = {
+            "I": [cy - 8, cy - 4], "II": [cy - 9, cy - 5], "III": [cy - 10, cy - 6], "IV": [cy - 11, cy - 7],
+            "V": [cy - 12, cy - 8], "VI": [cy - 13, cy - 9], "VII": [cy - 14, cy - 10], "VIII": [cy - 15, cy - 11],
+            "IX": [cy - 16, cy - 12], "X": [cy - 17, cy - 13],
+        };
+        const range = map[gradeName.toUpperCase()];
+        if (!range) return Promise.resolve();
+        const yr = new Date(value).getFullYear();
+        if (yr < range[0] || yr > range[1])
+            return Promise.reject(`DOB doesn't match Grade ${gradeName}`);
+        return Promise.resolve();
+    };
+    const validateAccountNumber = (_, v) =>
+        (!v || v.length < 8) ? Promise.reject("Account number must be at least 8 digits") : Promise.resolve();
+
+    const validateEmail = (_, v) => {
+        if (!v) return Promise.resolve();
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+            ? Promise.resolve() : Promise.reject("Enter a valid email address");
+    };
+    /* ── Academic history helpers ── */
+    const handleInputChange = (index, field, value) => {
+        const updated = [...academicHistory];
+        updated[index][field] = value;
+        setAcademicHistory(updated);
+    };
+    const handleAddRow = () => {
+        if (academicHistory.length < 4)
+            setAcademicHistory(prev => [...prev, { id: Date.now(), schoolName: "", standard: "", duration: "" }]);
+    };
+    const handleRemoveRow = (index) =>
+        setAcademicHistory(prev => prev.filter((_, i) => i !== index));
+
+    /* ── Navigation ── */
+    const handleNext = () => form.validateFields().then(() => setCurrentStep(s => s + 1)).catch(() => { });
+    const handlePrev = () => setCurrentStep(s => s - 1);
+    const handleCancel = () => navigate("/studentsslc");
+
+    /* ── Step required fields ── */
+    const stepFields = [
+        ["school_id", "academicYear", "dateofjoin", "emisNum", "aadharNumber"],
+        ["name", "gender", "grade_id", "section_id", "dob", "medium", "nationality", "state", "motherTongue",
+            "hometown", "religion", "community", "identificationmarks", "bloodGroup"],
+        ["fatherName", "motherName", "fatherOccupation", "motherOccupation",
+            "fatherIncome", "motherIncome", "address", "mobileNumber"],
+        ["academicHistory", "passorfail", "tceslc"],
+        ["bankName", "branchName", "accountNumber", "ifsccode"],
     ];
 
-
-    const handleInputChange = (index, field, value) => {
-        const updatedHistory = [...academicHistory];
-        updatedHistory[index][field] = value;
-        setAcademicHistory(updatedHistory);
+    /* ── Build payload — always merges ALL stored form values (including
+       unmounted step fields like school_id, academicYear from Step 0)
+       using getFieldsValue(true), then overrides with the just-validated
+       values so the current step's data is always fresh. ── */
+    const buildPayload = (validatedValues) => {
+        const allStored = form.getFieldsValue(true); // ALL steps, mounted or not
+        const merged = { ...allStored, ...validatedValues };
+        const ageObj = calculateAge(merged.dob || dob);
+        return {
+            ...merged,
+            dob: merged.dob || dob,
+            age: JSON.stringify(ageObj),
+            // For superadmin use form value; for school users always use schoolId from localStorage
+            school_id: role === "superadmin"
+                ? (merged.school_id || schoolId)
+                : schoolId,
+            academicHistory: JSON.stringify(academicHistory),
+            // Coerce string-sensitive fields
+            emisNum: merged.emisNum ? String(merged.emisNum).trim() : undefined,
+            aadharNumber: merged.aadharNumber ? String(merged.aadharNumber).trim() : undefined,
+            pincode: merged.pincode ? String(merged.pincode).trim() : undefined,
+            mobileNumber: merged.mobileNumber ? String(merged.mobileNumber).trim() : undefined,
+            guardianNumber: merged.guardianNumber ? String(merged.guardianNumber).trim() : undefined,
+            accountNumber: merged.accountNumber ? String(merged.accountNumber).trim() : undefined,
+        };
     };
 
-    const handleAddRow = () => {
-        setAcademicHistory([
-            ...academicHistory,
-            { schoolName: "", standard: "", duration: "" }
-        ]);
-    };
-
-    const handleRemoveRow = (index) => {
-        const updatedHistory = academicHistory.filter((_, i) => i !== index);
-        setAcademicHistory(updatedHistory);
-    };
-
-    const validateAccountNumber = (_, value) => {
-        if (!value || value.length < 9) {
-            return Promise.reject('Account number must be at least 9 digits');
-        }
-        return Promise.resolve();
-    };
-
-    const validateIFSCCode = (_, value) => {
-        const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-        if (!value || !ifscRegex.test(value)) {
-            return Promise.reject('Enter a valid IFSC code (e.g., SBIN0001234)');
-        }
-        return Promise.resolve();
-    };
-
+    /* ── Save Draft ── */
     const handleDraft = async () => {
         setLoading(true);
-
         try {
             const currentStepFields = stepFields.slice(0, currentStep + 1).flat();
-            const values = await form.validateFields(currentStepFields);
-
-            if (!values.dob) {
-                message.error("Date of Birth is required");
-                setLoading(false);
-                return;
-            }
-
-            const ageObj = calculateAge(values.dob);
-
-            const payload = {
-                ...values,
-                dob: values.dob,
-                age: JSON.stringify(ageObj),
-                school_id: role === "superadmin" ? values.school_id : schoolId,
-                academicHistory: JSON.stringify(academicHistory),
-            };
+            const validatedValues = await form.validateFields(currentStepFields);
+            const payload = buildPayload(validatedValues);
 
             const url = isEdit
                 ? `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${id}`
                 : `${process.env.REACT_APP_API_URL}/studentsslc/createStudentsslc`;
 
             await axios[isEdit ? "put" : "post"](url, payload);
-
-            message.success(
-                isEdit ? "Draft updated successfully!" : "Draft saved successfully!"
-            );
-
+            message.success(isEdit ? "Application updated successfully!" : "Draft saved successfully!");
             navigate("/studentsslc");
-
-        } catch (error) {
-            console.error("Draft save error:", error);
-            message.error(error.response?.data?.error || "Failed to save draft");
+        } catch (err) {
+            message.error(err.response?.data?.error || "Failed to save draft");
         }
-
         setLoading(false);
     };
 
-
-
+    /* ── Submit ── */
     const handleSubmit = async () => {
         setLoading(true);
-
         try {
-            const values = await form.validateFields();
-            const selectedDOB = values.dob;
-            const ageObj = calculateAge(selectedDOB);
-
-            const payload = {
-                ...values,
-                dob: selectedDOB,
-                age: JSON.stringify(ageObj),
-                school_id: role === "superadmin" ? values.school_id : schoolId,
-                academicHistory: JSON.stringify(academicHistory),
-            };
+            // Validate only the current (last) step's fields — prior steps were
+            // validated on each Next click. Then merge with all stored values.
+            const validatedValues = await form.validateFields(stepFields[currentStep]);
+            const payload = buildPayload(validatedValues);
 
             const url = isEdit
                 ? `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${id}`
                 : `${process.env.REACT_APP_API_URL}/studentsslc/createStudentsslc`;
 
             const response = await axios[isEdit ? "put" : "post"](url, payload);
-
             message.success(
                 isEdit
                     ? "Student updated successfully!"
                     : `Student created! Number: ${response.data.application.admissionNumber}`
             );
-
-            if (isEdit) {
-                navigate("/studentsslc");
-            } else {
-                form.resetFields();
-            }
-
-        } catch (error) {
-            console.error("Submit error:", error);
-            message.error(error.response?.data?.error || "Failed to submit student");
+            if (isEdit) navigate("/studentsslc");
+            else form.resetFields();
+        } catch (err) {
+            message.error(err.response?.data?.error || "Failed to submit student");
         }
-
         setLoading(false);
     };
 
+    /* ── States list ── */
+    const statesInIndia = [
+        "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+        "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+        "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+        "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana",
+        "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal", "Others",
+    ];
+
+    /* ═══════════════════════════════════════════════════════════════
+       STEP CONTENT
+    ═══════════════════════════════════════════════════════════════ */
     const stepContent = [
-        // Step 1: Academic Details
+
+        /* ── Step 0: Academic Details ── */
         <>
+            <SectionHead title="School & Academic Details" />
             {role === "superadmin" ? (
-                <Form.Item name="school_id" label="School" rules={[{ required: true }]}>
-                    <Select placeholder="Select school" onChange={handleSchoolChange} showSearch>
-                        {schools.map((school) => (
-                            <Option key={school.id} value={school.id}>{school.name}</Option>
-                        ))}
+                <FI name="school_id" label="School" rules={[{ required: true, message: "Please select a school!" }]}>
+                    <Select placeholder="Select school" onChange={handleSchoolChange} showSearch style={{ width: "100%" }}>
+                        {schools.map(s => <Option key={s.id} value={s.id}>{s.name}</Option>)}
                     </Select>
-                </Form.Item>
+                </FI>
             ) : (
                 <>
-                    <Form.Item name="school_id" hidden initialValue={schoolId}>
-                        <Input type="hidden" />
-                    </Form.Item>
-                    <Form.Item label="School Name">
-                        <Input value={user?.school?.name || "N/A"} disabled />
-                    </Form.Item>
+                    <FI name="school_id" hidden><Input type="hidden" /></FI>
+                    <FI label="School Name">
+                        <Input value={user?.school?.name || "N/A"} disabled style={{ width: "100%" }} />
+                    </FI>
                 </>
             )}
-
-            <Form.Item
-                label="Academic Year"
-                name="academicYear"
-                rules={[{ required: true, message: 'Select something!' }]}
-            >
-                <Select
-                    placeholder="Select"
-                    id="academicYear"
-                >
+            <FI name="academicYear" label="Academic Year"
+                rules={[{ required: true, message: "Please select academic year!" }]}>
+                <Select placeholder="Select Academic Year" onChange={handleAcademicYearChange} style={{ width: "100%" }}>
                     <Option value="2025-2026">2025-2026</Option>
                     <Option value="2026-2027">2026-2027</Option>
                 </Select>
-            </Form.Item>
-            <Form.Item
-                name="dateofjoin"
-                label="Date Of Join"
-                rules={[{ required: true, message: 'Select Date of Joining!' }]}>
-                <Input
-                    type='date'
-                />
-            </Form.Item>
-            <Form.Item label="EMIS Number" name="emisNum" rules={[
+            </FI>
+            <FI name="dateofjoin" label="Date of Join"
+                rules={[{ required: true, message: "Please select date of joining!" }]}>
+                <Input type="date" style={{ width: "100%" }} />
+            </FI>
+
+            <SectionHead title="Identification Numbers" />
+            <FI name="emisNum" label="EMIS Number" rules={[
                 { required: true, message: "Enter EMIS Number!" },
-                { pattern: /^[0-9]{11}$/, message: "Enter a valid 11-digit number!" }
+                { pattern: /^[0-9]{10,15}$/, message: "Enter a valid 10–15 digit number!" },
             ]}>
-                <Input />
-            </Form.Item>
-            <Form.Item label="Aadhar Number" name="aadharNumber" rules={[
-                { required: true, message: "Enter aadharnumber!" },
-                { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" }
+                <Input placeholder="Enter EMIS number" maxLength={15} style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 15); }} />
+            </FI>
+            <FI name="aadharNumber" label="Aadhar Number" rules={[
+                { required: true, message: "Enter Aadhar number!" },
+                { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" },
             ]}>
-                <Input />
-            </Form.Item>
+                <Input placeholder="Enter 12-digit Aadhar number" maxLength={12} style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 12); }} />
+            </FI>
         </>,
 
-        //step2: Student Information
+        /* ── Step 1: Student Information ── */
         <>
-            <Form.Item label="Full Name" name="name" rules={[{ required: true, message: "Please enter student name!" }]}>
-                <Input />
-            </Form.Item>
-
-            <Form.Item name="gender" label="Gender" rules={[{ required: true, message: 'Select something!' }]}>
+            <SectionHead title="Basic Details" />
+            <FI name="name" label="Full Name"
+                rules={[{ required: true, message: "Please enter student name!" }]}>
+                <Input placeholder="Enter full name" style={{ width: "100%" }} />
+            </FI>
+            <FI name="gender" label="Gender"
+                rules={[{ required: true, message: "Please select gender!" }]}>
                 <Radio.Group>
                     <Radio value="Male">Male</Radio>
                     <Radio value="Female">Female</Radio>
                     <Radio value="Others">Others</Radio>
                 </Radio.Group>
-            </Form.Item>
-
-            <Form.Item
-                label="Grade"
-                name="grade_id"
-                rules={[{ required: true, message: "Please select grade!" }]}
-            >
-                <Select
-                    placeholder="Select grade"
+            </FI>
+            <FI name="grade_id" label="Grade"
+                rules={[{ required: true, message: "Please select grade!" }]}>
+                <Select placeholder="Select grade" style={{ width: "100%" }}
                     onChange={(gradeId) => {
-                        const selectedSchoolId =
-                            role === "superadmin"
-                                ? form.getFieldValue("school_id")
-                                : user?.school?.id;
-
+                        const sid = role === "superadmin"
+                            ? form.getFieldValue("school_id")
+                            : user?.school?.id;
                         const gradeObj = grades.find(g => g.id === gradeId);
                         setSelectedGradeName(gradeObj?.grade || "");
-
                         form.setFieldsValue({ section_id: undefined });
                         setSections([]);
-
-                        if (selectedSchoolId && gradeId) {
-                            fetchSectionsBySchoolAndGrade(selectedSchoolId, gradeId);
-                        }
-                    }}
-                >
+                        if (sid && gradeId) fetchSectionsBySchoolAndGrade(sid, gradeId);
+                    }}>
                     {grades
-                        .filter(g =>
-                            ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
-                                .includes(g.grade?.toUpperCase())
-                        )
-                        .map((g) => (
-                            <Option key={g.id} value={g.id}>
-                                {g.grade}
-                            </Option>
-                        ))}
+                        .filter(g => ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+                            .includes(g.grade?.toUpperCase()))
+                        .map(g => <Option key={g.id} value={g.id}>{g.grade}</Option>)}
                 </Select>
-            </Form.Item>
-
-
-            <Form.Item
-                label="Section"
-                name="section_id"
-                rules={[{ required: true, message: "Please select section!" }]}
-            >
-                <Select placeholder="Select section" disabled={!sections.length}>
-                    {sections.map((section) => (
-                        <Option key={section.id} value={section.id}>
-                            {section.sectionName}
-                        </Option>
-                    ))}
+            </FI>
+            <FI name="section_id" label="Section"
+                rules={[{ required: true, message: "Please select section!" }]}>
+                <Select placeholder="Select section" disabled={!sections.length} style={{ width: "100%" }}>
+                    {sections.map(s => <Option key={s.id} value={s.id}>{s.sectionName}</Option>)}
                 </Select>
-            </Form.Item>
-            <Form.Item
-                label="Date of Birth"
-                name="dob"
-                rules={[
-                    { required: true, message: "Please select date of birth!" },
-                    { validator: validateDOB }
-                ]}
-            >
-                <Input
-                    type="date"
-                    value={dob}   // ✅ ADD THIS
-                    onChange={(e) => {
-                        const dobValue = e.target.value;
-                        setDOB(dobValue);
+            </FI>
+            <FI name="dob" label="Date of Birth" rules={[
+                { required: true, message: "Please select date of birth!" },
+                { validator: validateDOB },
+            ]}>
+                <Input type="date" style={{ width: "100%" }}
+                    value={dob}
+                    onChange={e => {
+                        const v = e.target.value;
+                        setDOB(v);
+                        setAge(calculateAge(v));
+                        form.setFieldValue("dob", v);
+                    }} />
+            </FI>
+            <FI label="Age">
+                <Input value={formatAge(age)} disabled style={{ width: "100%" }} />
+            </FI>
+            <FI name="medium" label="Medium" rules={[{ required: true, message: "Please select medium!" }]}>
+                <Select placeholder="Select Medium" style={{ width: "100%" }}>
+                    <Option value="Tamil">Tamil</Option>
+                    <Option value="English">English</Option>
+                </Select>
+            </FI>
 
-                        const newAge = calculateAge(dobValue);
-                        setAge(newAge);
-
-                        form.setFieldValue("dob", dobValue);
-                    }}
-                />
-            </Form.Item>
-
-            <Form.Item label="Age">
-                <Input value={formatAge(age)} disabled />
-            </Form.Item>
-            <Form.Item
-                name="nationality"
-                label="Nationality"
-                rules={[{ required: true, message: 'Required!' }]}
-            >
-                <Select placeholder="Select your Nationality">
+            <SectionHead title="Personal Information" />
+            <FI name="nationality" label="Nationality"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Select placeholder="Select nationality" style={{ width: "100%" }}>
                     <Option value="India">India</Option>
                     <Option value="Non-Indian">Non-Indian</Option>
                 </Select>
-            </Form.Item>
+            </FI>
+            <FI name="state" label="State" rules={[{ required: true, message: "Required!" }]}>
+                <Select placeholder="Select state" style={{ width: "100%" }}>
+                    {statesInIndia.map(s => <Option key={s} value={s}>{s}</Option>)}
+                </Select>
+            </FI>
+            <FI name="motherTongue" label="Mother Tongue"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Select placeholder="Select mother tongue" style={{ width: "100%" }}>
+                    {["Tamil", "English", "Hindi", "Bengali", "Telugu", "Marathi", "Gujarati", "Urdu",
+                        "Kannada", "Odia", "Malayalam", "Punjabi", "Assamese", "Others"].map(t =>
+                            <Option key={t} value={t}>{t}</Option>)}
+                </Select>
+            </FI>
+            <FI name="hometown" label="Home Town" rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter home town" style={{ width: "100%" }} />
+            </FI>
+            <FI name="religion" label="Religion" rules={[{ required: true, message: "Required!" }]}>
+                <Select placeholder="Select religion" style={{ width: "100%" }}>
+                    {["Hindu", "Muslim", "Christian", "Jainism", "Others"].map(r =>
+                        <Option key={r} value={r}>{r}</Option>)}
+                </Select>
+            </FI>
+            <FI name="community" label="Community" rules={[{ required: true, message: "Required!" }]}>
+                <Select placeholder="Select community" style={{ width: "100%" }}>
+                    {["BC", "MBC", "SC", "ST", "OC", "OBC", "Others"].map(c =>
+                        <Option key={c} value={c}>{c}</Option>)}
+                </Select>
+            </FI>
+            <FI name="caste" label="Caste">
+                <Input placeholder="Enter caste" style={{ width: "100%" }} />
+            </FI>
 
-            <Form.Item
-                name="state"
-                label="State"
-                rules={[{ required: true, message: 'Required!' }]}
-            >
-                <Select placeholder="Select your State">
-                    {statesinindia.map(state => (
-                        <Option key={state} value={state}>{state}</Option>
-                    ))}
-                </Select>
-            </Form.Item>
-            <Form.Item
-                name="motherTongue"
-                label="Mother Tongue"
-                rules={[{ required: true, message: 'Required!' }]}
-            >
-                <Select placeholder="Select your Mother Tongue">
-                    <Option value="Tamil">Tamil</Option>
-                    <Option value="English">English</Option>
-                    <Option value="Hindi">Hindi</Option>
-                    <Option value="Bengali">Bengali</Option>
-                    <Option value="Telugu">Telugu</Option>
-                    <Option value="Marathi">Marathi</Option>
-                    <Option value="Gujarati">Gujarati</Option>
-                    <Option value="Urdu">Urdu</Option>
-                    <Option value="Kannada">Kannada</Option>
-                    <Option value="Odia">Odia</Option>
-                    <Option value="Malayalam">Malayalam</Option>
-                    <Option value="Punjabi">Punjabi</Option>
-                    <Option value="Assamese">Assamese</Option>
-                    <Option value="Others">Others</Option>
-                </Select>
-            </Form.Item>
-
-            <Form.Item label="Home Town" name="hometown" rules={[{ required: true, message: 'Required!' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item label="Religion" name="religion">
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Community"
-                name="community"
-                rules={[{ required: true, message: 'Select something!' }]}
-            >
-                <Select
-                    placeholder="Select"
-                    id="community"
-                >
-                    <Option value="BC">BC</Option>
-                    <Option value="MBC">MBC</Option>
-                    <Option value="SC">SC</Option>
-                    <Option value="ST">ST</Option>
-                    <Option value="OC">OC</Option>
-                    <Option value="DNC">DNC</Option>
-                    <Option value="FC">FC</Option>
-                    <Option value="OBC">OBC</Option>
-                    <Option value="BCM">BCM</Option>
-                    <Option value="Others">Others</Option>
-                </Select>
-            </Form.Item>
-            <Form.Item label="Caste" name="caste">
-                <Input />
-            </Form.Item>
-            <Form.Item
-                name="tribecommunity"
-                label="Is the student from scheduled tribe community?"
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
-            <Form.Item
-                name="exgratiasalary"
-                label="Is the caste entitled to get ex-gratia salary?"
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
-            <Form.Item
-                name="religionchanging"
-                label="Is the student a convert from Hinduism to Christianity?"
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
-            <Form.Item
-                label="Living with whom"
-                name="living"
-            >
-                <Select
-                    placeholder="Select"
-                    id="living"
-                >
+            <SectionHead title="Additional Information" />
+            <FI name="tribecommunity" label="Is the student from scheduled tribe community?">
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="exgratiasalary" label="Is the caste entitled to get ex-gratia salary?">
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="religionchanging" label="Is the student a convert from Hinduism to Christianity?">
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="vaccinated" label="Is the student vaccinated for chicken pox? Is scar available?">
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="living" label="Living with whom">
+                <Select placeholder="Select" style={{ width: "100%" }}>
                     <Option value="Parents">Parents</Option>
                     <Option value="Guardian">Guardian</Option>
                     <Option value="Others">Others</Option>
                 </Select>
-            </Form.Item>
-            <Form.Item
-                name="vaccinated"
-                label="Is the student for chicken pox? Is scar Available?"
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
-            <Form.Item label="Identification Marks" name="identificationmarks" rules={[{ required: true, message: "Required!" }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item
-                name="bloodGroup"
-                label="Blood Group"
-                rules={[{ required: true, message: "Required!" }]}
-            >
-                <Select
-                    placeholder="Select"
-                    id="bloodGroup"
-                >
-                    <Option value="O+ve">O+VE</Option>
-                    <Option value="O-ve">O-VE</Option>
-                    <Option value="A+ve">A+VE</Option>
-                    <Option value="A-ve">A-VE</Option>
-                    <Option value="B+ve">B+VE</Option>
-                    <Option value="B-ve">B-VE</Option>
-                    <Option value="AB+ve">AB+VE</Option>
-                    <Option value="AB-ve">AB-VE</Option>
-                    <Option value="A1+ve">A1+VE</Option>
-                    <Option value="A1-ve">A1-VE</Option>
-                    <Option value="A1B+ve">A1B+VE</Option>
-                    <Option value="A1B-ve">A1B-VE</Option>
-                    <Option value="A2B+ve">A2B+VE</Option>
-                    <Option value="A2B-ve">A2B-VE</Option>
+            </FI>
+            <FI name="identificationmarks" label="Identification Marks"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter identification marks" style={{ width: "100%" }} />
+            </FI>
+            <FI name="bloodGroup" label="Blood Group"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Select placeholder="Select blood group" style={{ width: "100%" }}>
+                    {["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", "A1B+ve", "A1+ve", "A1-ve", "A2+ve", "RH"].map(b => <Option key={b} value={b}>{b}</Option>)}
                 </Select>
-            </Form.Item>
-            <Form.Item
-                name="physical"
-                label="Is the student Physically challenged?"
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
-            <Form.Item
-                name="physicalDetails"
-                label="If He/ She Physically challenged Specify, Otherwish Enter Null">
-                <Input.TextArea
-                    autoSize={{ minRows: 3, maxRows: 3 }}
-                    placeholder="Enter Your Reason"
-                    maxLength={500} />
-            </Form.Item>
+            </FI>
+            <FI name="physical" label="Is the student physically challenged?">
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="physicalDetails" label="If physically challenged, specify (otherwise enter Null)">
+                <Input.TextArea autoSize={{ minRows: 3, maxRows: 5 }} maxLength={500}
+                    placeholder="Enter details or 'Null'" style={{ width: "100%" }} />
+            </FI>
         </>,
 
-        // Step 3: Parent Information
+        /* ── Step 2: Parent Information ── */
         <>
-            <Form.Item
-                label="Father's Name"
-                name="fatherName"
-                rules={[{ required: true, message: "Please enter father's name!" }]}
-            >
-                <Input />
-            </Form.Item>
+            <SectionHead title="Father's Details" />
+            <FI name="fatherName" label="Father's Name"
+                rules={[{ required: true, message: "Please enter father's name!" }]}>
+                <Input placeholder="Enter father's name" style={{ width: "100%" }} />
+            </FI>
+            <FI name="fatherOccupation" label="Father's Occupation"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter father's occupation" style={{ width: "100%" }} />
+            </FI>
+            <FI name="fatherIncome" label="Father's Annual Income"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter father's income" maxLength={10} style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9,]/g, ""); }} />
+            </FI>
 
-            <Form.Item
-                label="Mother's Name"
-                name="motherName"
-                rules={[{ required: true, message: "Please enter mother's name!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Father's Occupation"
-                name="fatherOccupation"
-                rules={[{ required: true, message: "Required!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Mother's Occupation"
-                name="motherOccupation"
-                rules={[{ required: true, message: "Required!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                name="fatherIncome"
-                label="Father's Annual Income"
-                rules={[
-                    {
-                        required: true,
-                        message: 'Required!',
-                    },
-                ]} >
-                <Input
-                    placeholder="Enter Father's Income"
-                    maxLength={10}
-                    onInput={(e) => {
-                        e.target.value = e.target.value.replace(/[^0-9]/g, ',');
-                    }} />
-            </Form.Item>
-            <Form.Item
-                name="motherIncome"
-                label="Mother's Annual Income"
-                rules={[
-                    {
-                        required: true,
-                        message: 'Required!',
-                    },
-                ]} >
-                <Input
-                    placeholder="Enter Mother's Income"
-                    maxLength={10}
-                    onInput={(e) => {
-                        e.target.value = e.target.value.replace(/[^0-9]/g, ',');
-                    }} />
-            </Form.Item>
-            <Form.Item
-                label="Address"
-                name="address"
-                rules={[{ required: true, message: "Required!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Pincode"
-                name="pincode"
-                rules={[{ pattern: /^[0-9]{6}$/, message: "Invalid!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Telephone Number"
-                name="telephoneNumber"
-                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid Telephone number!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Mobile Number"
-                name="mobileNumber"
-                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <h2>Guardian Information</h2>
-            <Form.Item
-                label="Guardian's Name"
-                name="guardianName"
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Guardian's Occupation"
-                name="guardianOccupation"
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                label="Guardian Address"
-                name="guardianAddress"
-            >
-                <Input.TextArea />
-            </Form.Item>
+            <SectionHead title="Mother's Details" />
+            <FI name="motherName" label="Mother's Name"
+                rules={[{ required: true, message: "Please enter mother's name!" }]}>
+                <Input placeholder="Enter mother's name" style={{ width: "100%" }} />
+            </FI>
+            <FI name="motherOccupation" label="Mother's Occupation"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter mother's occupation" style={{ width: "100%" }} />
+            </FI>
+            <FI name="motherIncome" label="Mother's Annual Income"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter mother's income" maxLength={10} style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9,]/g, ""); }} />
+            </FI>
 
-            <Form.Item
-                label="Guardian Phone Number"
-                name="guardianNumber"
-                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}
-            >
-                <Input />
-            </Form.Item>
+            <SectionHead title="Contact & Address" />
+            <FI name="address" label="Address" rules={[{ required: true, message: "Required!" }]}>
+                <Input placeholder="Enter address" style={{ width: "100%" }} />
+            </FI>
+            <FI name="pincode" label="Pincode"
+                rules={[{ pattern: /^[0-9]{6}$/, message: "Invalid pincode!" }]}>
+                <Input placeholder="Enter 6-digit pincode" style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 6); }} />
+            </FI>
+            <FI name="parentEmail" label="Parent's Email ID" rules={[{ validator: validateEmail }]}>
+                <Input placeholder="Enter parent's email address" type="email" style={{ width: "100%" }} />
+            </FI>
+            <FI name="mobileNumber" label="Mobile Number" rules={[
+                { required: true, message: "Mobile number is required!" },
+                { pattern: /^[0-9]{10}$/, message: "Enter a valid 10-digit mobile number!" },
+            ]}>
+                <Input placeholder="Enter mobile number" style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); }} />
+            </FI>
 
-            <Form.Item
-                name="parentconsentform"
-                label="Is parent consent Hardcopy is attached?"
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
+            <SectionHead title="Guardian Details" />
+            <FI name="guardianName" label="Guardian's Name">
+                <Input placeholder="Enter guardian's name" style={{ width: "100%" }} />
+            </FI>
+            <FI name="guardianOccupation" label="Guardian's Occupation">
+                <Input placeholder="Enter guardian's occupation" style={{ width: "100%" }} />
+            </FI>
+            <FI name="guardianAddress" label="Guardian Address">
+                <Input.TextArea autoSize={{ minRows: 3 }} placeholder="Enter guardian address" style={{ width: "100%" }} />
+            </FI>
+            <FI name="guardianNumber" label="Guardian Phone Number"
+                rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid phone number!" }]}>
+                <Input placeholder="Enter guardian phone number" style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); }} />
+            </FI>
         </>,
 
-        // Step 3: Academic Details
+        /* ── Step 3: General Information ── */
         <>
-            <Form.Item label="Student's Academic History">
-
+            <SectionHead title="Student's Academic History" />
+            <Form.Item label="Previous School Records" style={{ marginBottom: 16 }}
+                labelCol={{ style: { fontWeight: 600, fontSize: "13px", color: COLOR.textMid, paddingBottom: 3 } }}>
+                <div style={{
+                    display: "flex", gap: 8, marginBottom: 8, padding: "7px 10px",
+                    background: COLOR.bg, borderRadius: 6, border: `1px solid ${COLOR.border}`
+                }}>
+                    <div style={{ flex: 2, fontSize: 12, fontWeight: 600, color: COLOR.textSoft }}>School Name</div>
+                    <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: COLOR.textSoft }}>Standard</div>
+                    <div style={{ flex: 1.5, fontSize: 12, fontWeight: 600, color: COLOR.textSoft }}>Year (From – To)</div>
+                    <div style={{ width: 50 }} />
+                </div>
                 {(Array.isArray(academicHistory) ? academicHistory : []).map((item, index) => (
-                    <Row gutter={16} key={item.id || index} style={{ marginBottom: 8 }}>
-
-                        <Col span={6}>
-                            <Input
-                                placeholder="Last School Name"
-                                value={item.schoolName || ""}
-                                onChange={(e) =>
-                                    handleInputChange(index, "schoolName", e.target.value)
-                                }
-                            />
-                        </Col>
-
-                        <Col span={6}>
-                            <Input
-                                placeholder="Standard"
-                                value={item.standard || ""}
-                                onChange={(e) =>
-                                    handleInputChange(index, "standard", e.target.value)
-                                }
-                            />
-                        </Col>
-
-                        <Col span={6}>
-                            <Input
-                                placeholder="Year (From & To)"
-                                value={item.duration || ""}
-                                onChange={(e) =>
-                                    handleInputChange(index, "duration", e.target.value)
-                                }
-                            />
-                        </Col>
-
-                        <Col span={6}>
-                            {Array.isArray(academicHistory) && academicHistory.length > 1 && (
-                                <Button
-                                    type="link"
-                                    onClick={() => handleRemoveRow(index)}
-                                >
-                                    Remove
-                                </Button>
+                    <div key={item.id || index} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                        <Input style={{ flex: 2 }} placeholder={`School Name ${index + 1}`}
+                            value={item.schoolName || ""}
+                            onChange={e => handleInputChange(index, "schoolName", e.target.value)} />
+                        <Input style={{ flex: 1 }} placeholder="Standard"
+                            value={item.standard || ""}
+                            onChange={e => handleInputChange(index, "standard", e.target.value)} />
+                        <Input style={{ flex: 1.5 }} placeholder="e.g. 2022–2023"
+                            value={item.duration || ""}
+                            onChange={e => handleInputChange(index, "duration", e.target.value)} />
+                        <div style={{ width: 50, display: "flex", alignItems: "center" }}>
+                            {academicHistory.length > 1 && (
+                                <button type="button" onClick={() => handleRemoveRow(index)}
+                                    style={{
+                                        all: "unset", cursor: "pointer", color: COLOR.danger,
+                                        fontSize: 13, fontWeight: 600, padding: "3px 7px",
+                                        borderRadius: 5, background: "rgba(226,18,22,0.07)"
+                                    }}>✕</button>
                             )}
-                        </Col>
-
-                    </Row>
+                        </div>
+                    </div>
                 ))}
-
-                <Button
-                    type="dashed"
-                    onClick={handleAddRow}
-                    disabled={
-                        !Array.isArray(academicHistory) ||
-                        academicHistory.length >= 4
-                    }
-                >
-                    Add Row
-                </Button>
-
-            </Form.Item>
-            <Form.Item
-                name="passorfail"
-                label="Has He/ She passed in the last class studied?"
-                rules={[{ required: true, message: 'Select something!' }]}
-            >
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
-            </Form.Item>
-            <Form.Item
-                name="tceslc"
-                label="Is T.C/ E.S.L.C/ Record sheet submitted?"
-                rules={[{ required: true, message: 'Required!' }]}>
-                <Radio.Group >
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No" >No</Radio>
-                </Radio.Group>
+                <button type="button" onClick={handleAddRow} disabled={academicHistory.length >= 4}
+                    style={{
+                        all: "unset", cursor: academicHistory.length >= 4 ? "not-allowed" : "pointer",
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        padding: "6px 14px", border: `1px dashed ${COLOR.border}`,
+                        borderRadius: 6, fontSize: 13, color: COLOR.textMid,
+                        background: COLOR.bg, marginTop: 4, opacity: academicHistory.length >= 4 ? 0.5 : 1
+                    }}>
+                    + Add Row
+                </button>
             </Form.Item>
 
-            <Form.Item label="First Language Preference" name="firstLanguage" rules={[{ required: true, message: 'Required!' }]}>
-                <Input />
-            </Form.Item>
+            <SectionHead title="Academic Records" />
+            <FI name="parentconsentform" label="Is parent consent hardcopy attached?">
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="passorfail" label="Has the student passed in the last class studied?"
+                rules={[{ required: true, message: "Please select an option!" }]}>
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="tceslc" label="Is T.C / E.S.L.C / Record sheet submitted?"
+                rules={[{ required: true, message: "Required!" }]}>
+                <Radio.Group><Radio value="Yes">Yes</Radio><Radio value="No">No</Radio></Radio.Group>
+            </FI>
+            <FI name="studentType" hidden><Input type="hidden" /></FI>
         </>,
 
-        // Step 4: Bank Details
+        /* ── Step 4: Bank Details ── */
         <>
-            <Form.Item
-                label="Bank Name"
-                name="bankName"
-                rules={[{ required: true, message: "Please enter bank name!" }]}
-            >
-                <Input />
-            </Form.Item>
-            <Form.Item
-                style={{ width: '100%' }}
-                name="branchName"
-                label="Branch Name"
-                rules={[{ required: true, message: "Please enter branch name!" }]}
-            >
-                <Input
-                    placeholder="Enter Branch Name"
-                    maxLength={50}
-                    onInput={(e) => {
-                        e.target.value = e.target.value
-                            .replace(/[^a-zA-Z\s]/g, '')
-                            .slice(0, 50);
-                    }}
-                />
-            </Form.Item>
-            <Form.Item
-                style={{ width: '100%' }}
-                name="accountNumber"
-                label="Bank Account Number"
-                rules={[{ validator: validateAccountNumber }]}
-            >
-                <Input
-                    placeholder="Enter Account Number"
-                    maxLength={17}
-                    onInput={(e) => {
-                        e.target.value = e.target.value
-                            .replace(/[^0-9]/g, '')
-                            .slice(0, 17);
-                    }}
-                />
-            </Form.Item>
-            <Form.Item
-                style={{ width: '100%' }}
-                name="ifsccode"
-                label="IFSC Code"
-                rules={[
-                    { required: true, message: 'Please enter IFSC Code!' },
-                    { validator: validateIFSCCode }
-                ]}
-            >
-                <Input
-                    placeholder="Enter IFSC Code"
-                    maxLength={11}
-                    onInput={(e) => {
-                        e.target.value = e.target.value
-                            .toUpperCase() // Ensure all characters are uppercase
-                            .replace(/[^A-Z0-9]/g, '') // Only allow A-Z and 0-9
-                            .slice(0, 11); // Limit to 11 characters
-                    }}
-                />
-            </Form.Item>
-        </>
+            <SectionHead title="Bank Account Information" />
+            <FI name="bankName" label="Bank Name"
+                rules={[{ required: true, message: "Please enter bank name!" }]}>
+                <Input placeholder="Enter bank name" style={{ width: "100%" }} />
+            </FI>
+            <FI name="branchName" label="Branch Name"
+                rules={[{ required: true, message: "Please enter branch name!" }]}>
+                <Input placeholder="Enter branch name" maxLength={50} style={{ width: "100%" }}
+                    onInput={e => { e.target.value = e.target.value.replace(/[^a-zA-Z\s]/g, "").slice(0, 50); }} />
+            </FI>
+            <FI name="accountNumber" label="Bank Account Number" rules={[{ validator: validateAccountNumber }]}>
+                <Input placeholder="Enter account number (min 8 characters)" maxLength={20} style={{ width: "100%" }} />
+            </FI>
+            <FI name="ifsccode" label="IFSC Code"
+                rules={[{ required: true, message: "Please enter IFSC Code!" }]}>
+                <Input placeholder="Enter IFSC Code" style={{ width: "100%" }} />
+            </FI>
+        </>,
     ];
 
+    /* ═══════════════════════════════════════════════
+       RENDER
+    ═══════════════════════════════════════════════ */
     return (
-        <div className="container" style={{ maxWidth: "1400px", margin: "0 auto", padding: "40px" }}>
-            <Card title={
-                <div style={{ textAlign: 'center' }}>
-                    <Title level={3}>Create SSLC Student ApplicationForm</Title>
-                    <Progress
-                        percent={(currentStep + 1) * 25}
-                        strokeColor={progressColor}
-                        style={{ width: '80%', margin: '0 auto' }}
-                    />
-                    <Steps current={currentStep} style={{ marginTop: 20 }}>
-                        {steps.map((title) => (
-                            <Step key={title} title={title} />
-                        ))}
-                    </Steps>
+        <Layout>
+            <div style={{ fontFamily: FF, maxWidth: 860, margin: "0 auto", paddingBottom: 40 }}>
+
+                <div style={{ marginBottom: 22 }}>
+                    <h1 style={{ fontSize: 22, fontWeight: 700, color: COLOR.text, margin: 0, letterSpacing: "-0.3px" }}>
+                        {isEdit ? "Edit SSLC Student Application" : "Create SSLC Student Application"}
+                    </h1>
+                    <div style={{ width: 40, height: 3, background: COLOR.blueLt, borderRadius: 2, marginTop: 6 }} />
                 </div>
-            }>
-                <Form form={form} onFinish={handleSubmit} layout="vertical">
 
+                <div style={{
+                    background: "#fff", borderRadius: 12,
+                    boxShadow: "0 2px 16px rgba(0,0,0,0.09)",
+                    border: `1px solid ${COLOR.border}`, overflow: "hidden",
+                    marginTop: 8, marginBottom: 24,
+                }}>
+                    {/* Dark header: progress bar + stepper */}
+                    <div style={{ background: COLOR.headBg, padding: "20px 32px 0" }}>
+                        <div style={{ marginBottom: 14 }}>
+                            <Progress
+                                percent={Math.round(((currentStep + 1) / STEPS.length) * 100)}
+                                strokeColor={progressColor}
+                                trailColor="rgba(255,255,255,0.15)"
+                                showInfo={false}
+                            />
+                        </div>
+                        <Steps current={currentStep} size="small"
+                            style={{ marginBottom: 0, paddingBottom: 20 }}
+                            items={STEPS.map(t => ({
+                                title: <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{t}</span>
+                            }))}
+                        />
+                    </div>
 
-                    {stepContent[currentStep]}
+                    {/* Step badge */}
+                    <div style={{
+                        background: COLOR.bg, padding: "9px 32px",
+                        borderBottom: `1px solid ${COLOR.border}`,
+                        display: "flex", alignItems: "center", gap: 8,
+                    }}>
+                        <span style={{
+                            display: "inline-flex", alignItems: "center", justifyContent: "center",
+                            width: 22, height: 22, borderRadius: "50%",
+                            background: progressColor, color: "#fff", fontSize: 11, fontWeight: 700,
+                        }}>{currentStep + 1}</span>
+                        <span style={{ fontWeight: 700, color: COLOR.text, fontSize: 13 }}>{STEPS[currentStep]}</span>
+                        <span style={{ fontSize: 12, color: COLOR.textSoft, marginLeft: "auto" }}>
+                            Step {currentStep + 1} of {STEPS.length}
+                        </span>
+                    </div>
 
-                    <Row justify="space-between" style={{ marginTop: 24 }}>
-                        <Col>
-                            {currentStep > 0 && (
-                                <Button onClick={handlePrev}>
-                                    Previous
-                                </Button>
-                            )}
-                        </Col>
-                        <Col>
-                            <Button onClick={handleDraft} style={{ marginRight: 8 }}>
-                                Save Draft
-                            </Button>
-                            {currentStep < steps.length - 1 ? (
-                                <Button type="primary" onClick={handleNext}>
-                                    Next
-                                </Button>
-                            ) : (
+                    {/* Form body */}
+                    <div style={{ padding: "24px 32px 0 32px" }}>
+                        <Form form={form} layout="vertical" onFinish={handleSubmit} preserve={true}>
+                            <div style={{ minHeight: 280 }}>
+                                {stepContent[currentStep]}
+                            </div>
 
-                                <Button onClick={handleDraft} style={{ marginRight: 8 }}>
-                                    Submit
-                                </Button>
-                            )}
-                        </Col>
-                    </Row>
-                </Form>
-            </Card>
-        </div>
+                            {/* Action bar */}
+                            <div style={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                padding: "16px 0 24px",
+                                borderTop: `1px solid ${COLOR.border}`,
+                                marginTop: 20, gap: 10, flexWrap: "wrap",
+                            }}>
+                                {/* Left: Cancel + Previous */}
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <ActionBtn variant="danger" onClick={handleCancel}>✕ Cancel</ActionBtn>
+                                    {currentStep > 0 && (
+                                        <ActionBtn variant="default" onClick={handlePrev}>← Previous</ActionBtn>
+                                    )}
+                                </div>
+
+                                {/* Right: Draft (steps 1–3) + Next / Submit */}
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    {currentStep >= 1 && currentStep <= 3 && (
+                                        <ActionBtn variant="draft" onClick={handleDraft} disabled={loading}>
+                                            Save Draft
+                                        </ActionBtn>
+                                    )}
+                                    {currentStep < STEPS.length - 1 ? (
+                                        <ActionBtn variant="primary" onClick={handleNext}>Next →</ActionBtn>
+                                    ) : (
+                                        <ActionBtn variant="success" onClick={handleSubmit} disabled={loading}>
+                                            {loading ? "Submitting…" : "✓ Submit Application"}
+                                        </ActionBtn>
+                                    )}
+                                </div>
+                            </div>
+                        </Form>
+                    </div>
+                </div>
+            </div>
+        </Layout>
     );
 };
-
 
 export default CreateStudentsslc;

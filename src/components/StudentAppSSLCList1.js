@@ -1,1319 +1,1036 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import { message, Modal, Descriptions, Form, Input, Radio, Steps, Select, Button } from "antd";
-import Sidebar from "./Sidebar";
-// import PromoteStudentModal from "./PromoteStudentModal";
-import { EyeOutlined, EditOutlined, DeleteOutlined, PrinterOutlined } from "@ant-design/icons";
+import {
+  message, Modal, Descriptions, Form, Input, Radio,
+  Select, Button, Checkbox, Dropdown, Tooltip, DatePicker
+} from "antd";
+import Layout from "./Layout";
+import {
+  EyeOutlined, EditOutlined, DeleteOutlined, PrinterOutlined,
+  ExclamationCircleOutlined, SettingOutlined, FileTextOutlined,
+  SwapOutlined, DownloadOutlined, LeftOutlined, RightOutlined,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
+import { useFilter } from "./FilterContext";
+import * as XLSX from "xlsx";
 
+// ── Design tokens ────────────────────────────────────────────────────────────
+const COLOR = {
+  blue:       "#1e40af",
+  blueLt:     "#3b82f6",
+  text:       "#1e293b",
+  textMid:    "#475569",
+  textSoft:   "#64748b",
+  border:     "#e2e8f0",
+  rowOdd:     "#ffffff",
+  rowEven:    "#f8fafc",
+  rowHover:   "#eff6ff",
+  rowSel:     "#eef2ff",
+  rowLocked:  "#f9f9f9",
+  headBg:     "#1a2236",
+  headText:   "#ffffff",
+  danger:     "#e21216",
+  dangerBg:   "rgba(226,18,22,0.08)",
+  viewBg:     "rgba(30,64,175,0.08)",
+  editColor:  "#0891b2",
+  editBg:     "rgba(8,145,178,0.08)",
+  printColor: "#c2580a",
+  printBg:    "rgba(194,88,10,0.08)",
+  tcColor:    "#722ed1",
+  tcBg:       "rgba(114,46,209,0.08)",
+  filterBg:   "#eff6ff",
+  filterText: "#1a3c6e",
+  promoColor: "#1a7a4a",
+  promoBg:    "rgba(26,122,74,0.08)",
+  demoteColor:"#b45309",
+  demoteBg:   "rgba(180,83,9,0.08)",
+};
+const FF = "'Segoe UI', system-ui, sans-serif";
+const FS = "13.5px";
+const PAGE_SIZE = 25;
 
+// ── Reusable icon button ─────────────────────────────────────────────────────
+const IconBtn = ({ icon, title, color, bg, onClick, disabled }) => {
+  const [hov, setHov] = React.useState(false);
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => !disabled && setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        all: "unset", width: 32, height: 32, borderRadius: 7,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        cursor: disabled ? "not-allowed" : "pointer", fontSize: 16,
+        transition: "all 0.15s",
+        color:      disabled ? "#c0c0c0" : hov ? color : COLOR.textMid,
+        background: disabled ? "transparent" : hov ? bg : "transparent",
+        opacity:    disabled ? 0.5 : 1,
+      }}
+    >
+      {icon}
+    </button>
+  );
+};
 
 const { Option } = Select;
 
+// ════════════════════════════════════════════════════════════════════════════
 const StudentSSLCList = () => {
-  const [studentsslcs, setStudentsslcs] = useState([]);
+  const [studentsslcs, setStudentsslcs]               = useState([]);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  const [grades, setGrades] = useState([]);
-  const [selectedGradeName, setSelectedGradeName] = useState('');
-  const [editingStudentPageData, setEditingStudentPageData] = useState({
-    age: { years: 0, months: 0, days: 0 }
-  });
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  // const [promoteModalOpen, setPromoteModalOpen] = useState(false);
-  const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user"));
-  const role = user?.roleName?.toLowerCase().replace(/\s+/g, "");
-  const schoolId = user?.school?.id;
-  const [editForm] = Form.useForm();
-  const [editFormData, setEditFormData] = useState({});
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [sections, setSections] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  // const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+  const [grades, setGrades]                           = useState([]);
+  const [selectedGradeName, setSelectedGradeName]     = useState("");
+  const [editingStudentPageData, setEditingStudentPageData] = useState({ age: { years: 0, months: 0, days: 0 } });
+  const [isModalVisible, setIsModalVisible]           = useState(false);
+  const navigate                                      = useNavigate();
+  const location                                      = useLocation();
+  const user                                          = JSON.parse(localStorage.getItem("user"));
+  const role                                          = user?.roleName?.toLowerCase().replace(/\s+/g, "");
+  const schoolId                                      = user?.school?.id;
+  const [editForm]                                    = Form.useForm();
+  const [editFormData, setEditFormData]               = useState({});
+  const [isEditModalVisible, setIsEditModalVisible]   = useState(false);
+  const [currentStep, setCurrentStep]                 = useState(0);
+  const [sections, setSections]                       = useState([]);
+  const isAdminRole  = role === "superadmin" || role === "schooladmin";
+  const isSuperAdmin = role === "superadmin";
 
-  const iconSlotStyle = {
-    width: "28px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center"
+  // ── Global filter from Dashboard ─────────────────────────────────────────
+  const { selectedSchool, selectedYear, selectedSchoolName } = useFilter();
+
+  // ── TC / Withdraw state ──────────────────────────────────────────────────
+  const [selectedRowKeys, setSelectedRowKeys]                       = useState([]);
+  const [isBulkWithdrawModalVisible, setIsBulkWithdrawModalVisible] = useState(false);
+  const [bulkWithdrawReason, setBulkWithdrawReason]                 = useState("");
+  const [withdrawing, setWithdrawing]                               = useState(false);
+
+  // ── Issue TC state ───────────────────────────────────────────────────────
+  const [tcForm]                                = Form.useForm();
+  const [isTcModalVisible, setIsTcModalVisible] = useState(false);
+  const [tcLoading, setTcLoading]               = useState(false);
+  const [pendingTcIds, setPendingTcIds]         = useState([]);
+
+  // ── Grade / Section filters ──────────────────────────────────────────────
+  const [filterGrade,   setFilterGrade]   = useState("");
+  const [filterSection, setFilterSection] = useState("");
+
+  // ── Pagination ───────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // ── Re-fetch on filter/route change ─────────────────────────────────────
+  useEffect(() => { fetchStudentsslcs(); }, [selectedSchool, selectedYear, location.pathname]);
+
+  // Reset to page 1 when data changes
+  useEffect(() => { setCurrentPage(1); }, [studentsslcs]);
+
+  // Reset section filter when grade changes
+  useEffect(() => { setFilterSection(""); }, [filterGrade]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [filterGrade, filterSection]);
+
+  // ── Fetch grades for edit modal ──────────────────────────────────────────
+  const fetchGrades = async (id, year) => {
+    if (!id || !year) return;
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/grade/getGradesBySchoolAndYear/${id}/${year}`);
+      setGrades(res.data.grades || []);
+    } catch (e) { console.error("Error fetching grades:", e); }
   };
-
   useEffect(() => {
-    fetchStudentsslcs();
-  }, [role, schoolId]);
+    if (isSuperAdmin && selectedApplication?.school_id) fetchGrades(selectedApplication.school_id, selectedYear);
+    else if (schoolId) fetchGrades(schoolId, selectedYear);
+  }, [selectedApplication]);
+  useEffect(() => { if (schoolId && selectedYear) fetchGrades(schoolId, selectedYear); }, []);
 
+  // ── Helpers ──────────────────────────────────────────────────────────────
   const calculateAge = (dob) => {
     if (!dob) return { years: 0, months: 0, days: 0 };
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let years = today.getFullYear() - birthDate.getFullYear();
-    let months = today.getMonth() - birthDate.getMonth();
-    let days = today.getDate() - birthDate.getDate();
-    if (days < 0) {
-      months--;
-      days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
-    }
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
+    const b = new Date(dob), t = new Date();
+    let years = t.getFullYear() - b.getFullYear();
+    let months = t.getMonth() - b.getMonth();
+    let days = t.getDate() - b.getDate();
+    if (days < 0)   { months--; days  += new Date(t.getFullYear(), t.getMonth(), 0).getDate(); }
+    if (months < 0) { years--;  months += 12; }
     return { years, months, days };
   };
 
   const formatAge = (age) => {
     if (!age || typeof age !== "object") return "N/A";
     const { years = 0, months = 0, days = 0 } = age;
-    return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}, ${days} day${days !== 1 ? 's' : ''}`;
+    return `${years} year${years !== 1 ? "s" : ""}, ${months} month${months !== 1 ? "s" : ""}, ${days} day${days !== 1 ? "s" : ""}`;
   };
 
-  const statesinindia = [
-    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
-    "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
-    "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan",
-    "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
-    "Uttarakhand", "West Bengal", "Others"
-  ];
-
-
-  const fetchGrades = async (schoolId) => {
+  const fetchSectionsBySchoolAndGrade = async (sId, gId) => {
+    if (!sId || !gId) return;
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/grade/getGradesBySchool/${schoolId}`);
-      setGrades(response.data.grades || []);
-    } catch (error) {
-      console.error("Error fetching grades:", error);
-
-    }
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${sId}/${gId}`);
+      setSections(res.data.sections || []);
+    } catch (e) { console.error("Error fetching sections:", e); setSections([]); }
   };
 
-  useEffect(() => {
-    fetchStudentsslcs();
+  const validateDOB           = (_, v) => { if (!v) return Promise.reject("DOB is required!"); if (new Date(v) >= new Date()) return Promise.reject("DOB cannot be in the future!"); return Promise.resolve(); };
+  const validateAccountNumber = (_, v) => { if (!v || !/^\d{9,17}$/.test(v)) return Promise.reject("Account number must be 9 to 17 digits!"); return Promise.resolve(); };
+  const validateIFSCCode      = (_, v) => { if (!v || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(v)) return Promise.reject("Enter a valid IFSC Code (e.g., SBIN0001234)!"); return Promise.resolve(); };
 
-    if (role === "superadmin" && selectedApplication?.school_id) {
-      fetchGrades(selectedApplication.school_id);
-    } else if (schoolId) {
-      fetchGrades(schoolId);
-    }
-  }, [role, schoolId, selectedApplication]);
-
-  useEffect(() => {
-    fetchGrades();
-  }, []);
-
-  const fetchSectionsBySchoolAndGrade = async (schoolId, gradeId) => {
-    if (!schoolId || !gradeId) return;
-
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/section/getSectionsBySchoolAndGrade/${schoolId}/${gradeId}`
-      );
-      setSections(response.data.sections || []);
-    } catch (error) {
-      console.error("Error fetching sections:", error);
-      setSections([]); // Clear if failed
-    }
-  };
-
-  const validateDOB = (_, value) => {
-    if (!value) return Promise.reject("DOB is required!");
-    const dob = new Date(value);
-    const today = new Date();
-    if (dob >= today) {
-      return Promise.reject("DOB cannot be in the future!");
-    }
-    return Promise.resolve();
-  };
-
-  const handleEdit = (id) => {
-    navigate(`/createstudentsslc/${id}`);
-  };
-
+  // ── Fetch list ───────────────────────────────────────────────────────────
   const fetchStudentsslcs = async () => {
     try {
       let response;
+      const effectiveSchoolId = isSuperAdmin ? (selectedSchool === "all" ? null : selectedSchool) : schoolId;
 
-      if (role === "superadmin") {
-        response = await axios.get(
-          "${process.env.REACT_APP_API_URL}/studentsslc/getAllStudentsslc"
-        );
+      if (isSuperAdmin && selectedSchool === "all" && selectedYear) {
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getAllStudentsslcByYear/${selectedYear}`);
+      } else if (effectiveSchoolId && selectedYear) {
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcsBySchoolAndYear/${effectiveSchoolId}/${selectedYear}`);
+      } else if (effectiveSchoolId) {
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcsBySchool/${effectiveSchoolId}`);
       } else {
-        if (!schoolId) {
-          console.error("School ID is missing");
-          return;
-        }
-        response = await axios.get(
-          `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcsBySchool/${schoolId}`
-        );
+        response = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getAllStudentsslc`);
       }
 
-      const formattedStudentsslcs = (response.data.studentsslcs || [])
-        .filter(student => student.status !== "Removed")
-        .map(studentsslc => ({
-          ...studentsslc,
-          Grade: studentsslc.Grade || { grade: "N/A" },
-          Section: studentsslc.Section || { sectionName: "N/A" }
+      const raw = response.data.studentsslcs || response.data.students || [];
+      const data = raw
+        .filter((s) => s.status !== "Removed" && s.status !== "Withdrawn" && s.status !== "TC Issued")
+        .map((s) => ({
+          ...s,
+          Grade:      s.Grade   || { grade: "N/A" },
+          Section:    s.Section || { sectionName: "N/A" },
+          isPromoted: s.isPromoted ?? false,
+          isDemoted:  s.isDemoted  ?? false,
+          isLocked:   s.isLocked   ?? false,
         }));
 
-      setStudentsslcs(formattedStudentsslcs);
-    } catch (error) {
-      console.error("Error fetching Students:", error);
-      message.error(
-        error.response?.data?.details || "Failed to fetch students"
-      );
+      setStudentsslcs(data.sort((a, b) => b.id - a.id));
+    } catch (e) {
+      console.error("Error fetching students:", e);
+      message.error(e.response?.data?.details || "Failed to fetch students");
     }
-  };
-  const validateAccountNumber = (_, value) => {
-    if (!value || !/^\d{9,17}$/.test(value)) {
-      return Promise.reject("Account number must be 9 to 17 digits!");
-    }
-    return Promise.resolve();
   };
 
-  const validateIFSCCode = (_, value) => {
-    if (!value || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
-      return Promise.reject("Enter a valid IFSC Code (e.g., SBIN0001234)!");
-    }
-    return Promise.resolve();
-  };
-
+  // ── View ─────────────────────────────────────────────────────────────────
   const handleView = async (id) => {
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`
-      );
-      setSelectedApplication(response.data.application);
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`);
+      setSelectedApplication(res.data.application);
       setIsModalVisible(true);
-    } catch (error) {
-      message.error("Failed to fetch application details");
-    }
+    } catch { message.error("Failed to fetch application details"); }
   };
 
+  // ── Update ───────────────────────────────────────────────────────────────
   const handleUpdate = async () => {
     try {
       const values = await editForm.validateFields();
-
-      await axios.put(
-        `${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${editFormData.id}`,
-        values
-      );
-
+      await axios.put(`${process.env.REACT_APP_API_URL}/studentsslc/updateStudentsslc/${editFormData.id}`, values);
       message.success("Student updated successfully");
       setIsEditModalVisible(false);
       fetchStudentsslcs();
-    } catch (err) {
-      message.error("Update failed");
-    }
+    } catch { message.error("Update failed"); }
   };
 
   const handleNextStep = async () => {
     try {
-      const stepFields = [
-        ['academicYear', 'emisNum', 'aadharNumber'],
-        ['name', 'gender', 'dob'],
-        // ... add more step field keys
-      ];
+      const stepFields = [["academicYear", "emisNum", "aadharNumber"], ["name", "gender", "dob"]];
       await editForm.validateFields(stepFields[currentStep]);
       setCurrentStep(currentStep + 1);
-    } catch (error) {
-      // form validation will show error messages
-    }
+    } catch {}
   };
 
-  // const handleOpenPromoteModal = () => {
-  //   setIsPromoteModalOpen(true);
-  // };
-
-  // const handleClosePromoteModal = () => {
-  //   setIsPromoteModalOpen(false);
-  // };
-
-  // Function to handle print click
-  const handlePrintClick = (application) => {
-    if (!application) {
-      message.error("No application data found for printing.");
-      return;
-    }
-
-    const printContent = preparePrintContent(application);
-    const printWindow = window.open('', '_blank');
-    printWindow.document.title = 'Application Details';
-    printWindow.document.write(printContent);
-    printWindow.print();
-  };
-
-  const handleDelete = async (id, name) => {
-    const confirmDelete = window.confirm(
-      `Are you sure you want to remove application of ${name}?`
-    );
-    if (!confirmDelete) return;
-
+  // ── Print ────────────────────────────────────────────────────────────────
+  const handlePrintClick = async (id) => {
     try {
-      await axios.put(
-        `${process.env.REACT_APP_API_URL}/studentsslc/updateStatus/${id}`
-      );
-
-      message.success("Application removed successfully");
-
-      // Refresh list → S.No auto reorders
-      fetchStudentsslcs();
-    } catch (error) {
-      message.error("Failed to remove application");
-    }
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/studentsslc/getStudentsslcById/${id}`);
+      const application = res.data.application;
+      if (!application) { message.error("No application data found for printing."); return; }
+      const printWindow = window.open("", "_blank");
+      printWindow.document.title = "Application Details";
+      printWindow.document.write(preparePrintContent(application));
+      printWindow.document.close();
+      printWindow.print();
+    } catch { message.error("Failed to fetch student data for print"); }
   };
 
+  // ── Delete ───────────────────────────────────────────────────────────────
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to remove application of ${name}?`)) return;
+    try {
+      await axios.put(`${process.env.REACT_APP_API_URL}/studentsslc/updateStatus/${id}`);
+      message.success("Application removed successfully");
+      fetchStudentsslcs();
+    } catch { message.error("Failed to remove application"); }
+  };
 
-  // Function to prepare the content for printing
-  const preparePrintContent = (selectedApplication) => {
-    // Here you format the selectedApplication data as per your print layout
-    const printContent = `
-    <style>
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    th, td {
-        border: 1px solid black;
-        padding: 8px;
-        text-align: left;
-    }
-</style>
+  // ── Checkbox helpers ─────────────────────────────────────────────────────
+  const selectableStudents = studentsslcs.filter((s) => !s.isLocked);
+  const toggleSelectAll    = (e) => setSelectedRowKeys(e.target.checked ? selectableStudents.map((s) => s.id) : []);
+  const toggleSelectRow    = (id) => setSelectedRowKeys((prev) => prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id]);
+  const allSelected        = selectableStudents.length > 0 && selectedRowKeys.length === selectableStudents.length;
+  const someSelected       = selectedRowKeys.length > 0 && selectedRowKeys.length < selectableStudents.length;
+
+  // ── Bulk withdraw ────────────────────────────────────────────────────────
+  const confirmBulkWithdraw = async () => {
+    setWithdrawing(true);
+    try {
+      await axios.put(`${process.env.REACT_APP_API_URL}/studentsslc/withdrawStudents`, {
+        ids: selectedRowKeys, reason: bulkWithdrawReason, school_id: schoolId,
+      });
+      message.success(`${selectedRowKeys.length} student(s) moved to TC successfully.`);
+      setSelectedRowKeys([]); setBulkWithdrawReason(""); setIsBulkWithdrawModalVisible(false);
+      fetchStudentsslcs();
+    } catch { message.error("Failed to withdraw students. Please try again."); }
+    finally { setWithdrawing(false); }
+  };
+
+  // ── TC modal ─────────────────────────────────────────────────────────────
+  const openTcModal = (ids) => {
+    if (!ids || ids.length === 0) { message.warning("Please select at least one student first."); return; }
+    setPendingTcIds(ids); tcForm.resetFields();
+    tcForm.setFieldsValue({ tcDate: dayjs(), conductCertificate: "Good" });
+    setIsTcModalVisible(true);
+  };
+
+  const handleBulkTcSubmit = async () => {
+    try {
+      const values = await tcForm.validateFields();
+      setTcLoading(true);
+      await axios.post(`${process.env.REACT_APP_API_URL}/tc/bulkIssueTc`, {
+        studentIds: pendingTcIds,
+        tcDate: values.tcDate ? values.tcDate.format("YYYY-MM-DD") : null,
+        reason: values.reason, conductCertificate: values.conductCertificate, remarks: values.remarks,
+      });
+      message.success(`TC issued for ${pendingTcIds.length} student(s) successfully`);
+      setIsTcModalVisible(false); setSelectedRowKeys([]); setPendingTcIds([]);
+      fetchStudentsslcs();
+    } catch (err) { message.error(err.response?.data?.error || "Failed to issue TC"); }
+    finally { setTcLoading(false); }
+  };
+
+  // ── Promote ──────────────────────────────────────────────────────────────
+  const handlePromoteNavigate = () => {
+    if (selectedRowKeys.length === 0) { navigate("/studentpromotion"); return; }
+    const sel = studentsslcs.filter((s) => selectedRowKeys.includes(s.id));
+    if ([...new Set(sel.map((s) => s.school_id))].length > 1)  { message.error("Selected students belong to different schools. Please select students from the same school only."); return; }
+    if ([...new Set(sel.map((s) => s.grade_id))].length > 1)   { message.error("Selected students belong to different classes. Please select students from the same class only."); return; }
+    if ([...new Set(sel.map((s) => s.section_id))].length > 1) { message.error("Selected students belong to different sections. Please select students from the same section only."); return; }
+    navigate("/studentpromotion", { state: { selectedStudents: sel, mode: "promote" } });
+  };
+
+  // ── Demote ───────────────────────────────────────────────────────────────
+  const handleDemoteNavigate = () => {
+    if (selectedRowKeys.length === 0) { navigate("/studentpromotion", { state: { mode: "demote" } }); return; }
+    const sel = studentsslcs.filter((s) => selectedRowKeys.includes(s.id));
+    if ([...new Set(sel.map((s) => s.school_id))].length > 1)  { message.error("Selected students belong to different schools. Please select students from the same school only."); return; }
+    if ([...new Set(sel.map((s) => s.grade_id))].length > 1)   { message.error("Selected students belong to different classes. Please select students from the same class only."); return; }
+    if ([...new Set(sel.map((s) => s.section_id))].length > 1) { message.error("Selected students belong to different sections. Please select students from the same section only."); return; }
+    navigate("/studentpromotion", { state: { selectedStudents: sel, mode: "demote" } });
+  };
+
+  // ── Settings dropdown items ──────────────────────────────────────────────
+  const cornerDropdownItems = [
+    {
+      key: "issuetc",
+      label: (
+        <span style={{ color: COLOR.tcColor, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+          <FileTextOutlined /> Issue TC
+          {selectedRowKeys.length > 0 && (
+            <span style={{ marginLeft: 4, background: COLOR.tcColor, color: "#fff", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 700 }}>
+              {selectedRowKeys.length}
+            </span>
+          )}
+        </span>
+      ),
+      onClick: () => openTcModal(selectedRowKeys),
+    },
+    {
+      key: "promote",
+      label: (
+        <span style={{ color: COLOR.promoColor, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+          <SwapOutlined /> Promote Students
+          {selectedRowKeys.length > 0 && (
+            <span style={{ marginLeft: 4, background: COLOR.promoColor, color: "#fff", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 700 }}>
+              {selectedRowKeys.length}
+            </span>
+          )}
+        </span>
+      ),
+      onClick: handlePromoteNavigate,
+    },
+    {
+      key: "demote",
+      label: (
+        <span style={{ color: COLOR.demoteColor, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+          <SwapOutlined rotate={180} /> Demote Students
+          {selectedRowKeys.length > 0 && (
+            <span style={{ marginLeft: 4, background: COLOR.demoteColor, color: "#fff", borderRadius: 10, padding: "0 7px", fontSize: 11, fontWeight: 700 }}>
+              {selectedRowKeys.length}
+            </span>
+          )}
+        </span>
+      ),
+      onClick: handleDemoteNavigate,
+    },
+  ];
+
+  // ── Print template ───────────────────────────────────────────────────────
+  const preparePrintContent = (a) => `
+    <style>table{width:100%;border-collapse:collapse}th,td{border:1px solid black;padding:8px;text-align:left}</style>
     <h2>General Information</h2>
     <table border="1" cellpadding="5" cellspacing="0">
-    <tr>
-      <td><strong>Admission Number:</strong></td>
-      <td>${selectedApplication.admissionNumber}</td>
-    </tr>
-    <tr>
-      <td><strong>School Name:</strong></td>
-      <td>${selectedApplication.School?.name}</td>
-    </tr>
-    <tr>
-      <td><strong>Academic Year:</strong></td>
-      <td>${selectedApplication.academicYear}</td>
-    </tr>
-    <tr>
-      <td><strong>EMIS Number:</strong></td>
-      <td>${selectedApplication.emisNum}</td>
-    </tr>
-    <tr>
-      <td><strong>Aadhaar Number:</strong></td>
-      <td>${selectedApplication.aadharNumber}</td>
-    </tr>
-  </table>
-  <h2>Student Information</h2>
-  <table border="1" cellpadding="5" cellspacing="0">
-    <tr>
-      <td><strong>Name:</strong></td>
-      <td>${selectedApplication.name}</td>
-    </tr>
-    <tr>
-      <td><strong>Gender:</strong></td>
-      <td>${selectedApplication.gender}</td>
-    </tr>
-    <tr>
-      <td><strong>Grade:</strong></td>
-      <td>${selectedApplication.grade}</td>
-    </tr>
-    <tr>
-  <td><strong>Section:</strong></td>
-  <td>${selectedApplication.Section?.sectionName || "N/A"}</td>
-</tr>
-    <tr>
-        <td><strong>Date of Birth:</strong></td>
-        <td>${selectedApplication.dob}</td>
-    </tr>
-    <tr>
-        <td><strong>Age:</strong></td>
-        <td>${selectedApplication.age}</td>
-    </tr>
-    <tr>
-        <td><strong>Nationality:</strong></td>
-        <td>${selectedApplication.nationality}</td>
-    </tr>
-    <tr>
-        <td><strong>State:</strong></td>
-        <td>${selectedApplication.state}</td>
-    </tr>
-    <tr>
-        <td><strong>Mother Tongue:</strong></td>
-        <td>${selectedApplication.motherTongue}</td>
-    </tr>
-        <tr>
-        <td><strong>Religion:</strong></td>
-        <td>${selectedApplication.religion}</td>
-    </tr>
-    <tr>
-        <td><strong>Home Town:</strong></td>
-        <td>${selectedApplication.hometown}</td>
-    </tr>
-    <tr>
-        <td><strong>Community:</strong></td>
-        <td>${selectedApplication.community}</td>
-    </tr>
-    <tr>
-        <td><strong>Is the student from scheduled tribe community?</strong></td>
-        <td>${selectedApplication.tribecommunity}</td>
-    </tr>
-    <tr>
-        <td><strong>Is the caste entitled to get ex-gratia salary?</strong></td>
-        <td>${selectedApplication.exgratiasalary}</td>
-    </tr>
-    <tr>
-        <td><strong>Is the student a convert from Hinduism to Christianity?</strong></td>
-        <td>${selectedApplication.religionchanging}</td>
-    </tr>
-    <tr>
-        <td><strong>Living with whom:</strong></td>
-        <td>${selectedApplication.living}</td>
-    </tr>
-    <tr>
-        <td><strong>Is the student for chicken pox? Is scar Available?</strong></td>
-        <td>${selectedApplication.vaccinated}</td>
-    </tr>
-  <tr>
-  <td><strong>Identification Marks:</strong></td>
-  <td>${selectedApplication.identificationmarks}</td>
-</tr>
-<tr>
-  <td><strong>Blood Group:</strong></td>
-  <td>${selectedApplication.bloodGroup}</td>
-</tr>
-<tr>
-  <td><strong>Is the student Physically challenged?</strong></td>
-  <td>${selectedApplication.physical}</td>
-</tr>
-<tr>
-  <td><strong>If Physically challenged, specify:</strong></td>
-  <td>${selectedApplication.physicalDetails}</td>
-</tr>
-</table>
-<h2>Parent Details</h2>
-<table border="1" cellpadding="5" cellspacing="0">
-    <tr>
-        <td><strong>Father's Name:</strong></td>
-        <td>${selectedApplication.fatherName}</td>
-    </tr>
-    <tr>
-        <td><strong>Mother's Name:</strong></td>
-        <td>${selectedApplication.motherName}</td>
-    </tr>
-        <tr>
-        <td><strong>Father's Occupation:</strong></td>
-        <td>${selectedApplication.fatherOccupation}</td>
-    </tr>
-        <tr>
-        <td><strong>Mother's Occupation:</strong></td>
-        <td>${selectedApplication.motherOccupation}</td>
-    </tr>
-    <tr>
-        <td><strong>Father's Annual Income:</strong></td>
-        <td>${selectedApplication.fatherIncome}</td>
-    </tr>
-
-    <tr>
-        <td><strong>Mother's Annual Income:</strong></td>
-        <td>${selectedApplication.motherIncome}</td>
-    </tr>
-    <tr>
-        <td><strong>Address:</strong></td>
-        <td>${selectedApplication.address}</td>
-    </tr>
-    <tr>
-        <td><strong>Pincode:</strong></td>
-        <td>${selectedApplication.pincode}</td>
-    </tr>
-    <tr>
-        <td><strong>Telephone Number:</strong></td>
-        <td>${selectedApplication.telephoneNumber}</td>
-    </tr>
-  <td><strong>Mobile Number:</strong></td>
-  <td>${selectedApplication.mobileNumber}</td>
-</tr>
-<tr>
-  <td><strong>Guardian's Name:</strong></td>
-  <td>${selectedApplication.guardianName}</td>
-</tr>
-<tr>
-  <td><strong>Guardian's Occupation:</strong></td>
-  <td>${selectedApplication.guardianOccupation}</td>
-</tr>
-<tr>
-  <td><strong>Guardian's Address:</strong></td>
-  <td>${selectedApplication.guardianAddress}</td>
-</tr>
-<tr>
-  <td><strong>Guardian Phone Number:</strong></td>
-  <td>${selectedApplication.guardianNumber}</td>
-</tr>
-<tr>
-  <td><strong>Is parent consent letter attached?</strong></td>
-  <td>${selectedApplication.parentconsentform}</td>
-</tr>
-</table>
-  <h2>Academic Details</h2>
-<table border="1" cellpadding="5" cellspacing="0">
-   <tr>
-  <td><strong>Student's Academic History</strong></td>
-  <td>${selectedApplication.academicHistory}</td>
-</tr>
-<tr>
-  <td><strong>Has He/ She passed in the last class studied?</strong></td>
-  <td>${selectedApplication.passorfail}</td>
-</tr>
-<tr>
-  <td><strong>Is T.C/ E.S.L.C/ Record sheet submitted?</strong></td>
-  <td>${selectedApplication.tceslc}</td>
-</tr>
-<tr>
-  <td><strong>First Language Preference</strong></td>
-  <td>${selectedApplication.firstLanguage}</td>
-</tr>
-</table>
-  <h2>Bank Details</h2>
-<table border="1" cellpadding="5" cellspacing="0">
-<tr>
-        <td><strong>Bank Name:</strong></td>
-        <td>${selectedApplication.bankname}</td>
-    </tr>
-     <tr>
-        <td><strong>Branch Name:</strong></td>
-        <td>${selectedApplication.branchname}</td>
-    </tr>
-    <tr>
-        <td><strong>Account Number:</strong></td>
-        <td>${selectedApplication.accountnumber}</td>
-    </tr>
-    
-    <tr>
-        <td><strong>IFSC Code:</strong></td>
-        <td>${selectedApplication.ifsccode}</td>
-    </tr>
-</table>
+      <tr><td><strong>Admission Number:</strong></td><td>${a.admissionNumber}</td></tr>
+      <tr><td><strong>School Name:</strong></td><td>${a.School?.name}</td></tr>
+      <tr><td><strong>Academic Year:</strong></td><td>${a.academicYear}</td></tr>
+      <tr><td><strong>Date of Join:</strong></td><td>${a.dateofjoin}</td></tr>
+      <tr><td><strong>Application Number:</strong></td><td>${a.applicationNumber || "N/A"}</td></tr>
+      <tr><td><strong>EMIS Number:</strong></td><td>${a.emisNum}</td></tr>
+      <tr><td><strong>Aadhaar Number:</strong></td><td>${a.aadharNumber}</td></tr>
+    </table>
+    <h2>Student Information</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><td><strong>Name:</strong></td><td>${a.name}</td></tr>
+      <tr><td><strong>Gender:</strong></td><td>${a.gender}</td></tr>
+      <tr><td><strong>Grade:</strong></td><td>${a.Grade?.grade || "N/A"}</td></tr>
+      <tr><td><strong>Section:</strong></td><td>${a.Section?.sectionName || "N/A"}</td></tr>
+      <tr><td><strong>Date of Birth:</strong></td><td>${a.dob}</td></tr>
+      <tr><td><strong>Age:</strong></td><td>${formatAge(a.age)}</td></tr>
+      <tr><td><strong>Nationality:</strong></td><td>${a.nationality}</td></tr>
+      <tr><td><strong>State:</strong></td><td>${a.state}</td></tr>
+      <tr><td><strong>Mother Tongue:</strong></td><td>${a.motherTongue}</td></tr>
+      <tr><td><strong>Religion:</strong></td><td>${a.religion}</td></tr>
+      <tr><td><strong>Home Town:</strong></td><td>${a.hometown}</td></tr>
+      <tr><td><strong>Community:</strong></td><td>${a.community}</td></tr>
+      <tr><td><strong>Caste:</strong></td><td>${a.caste}</td></tr>
+      <tr><td><strong>Is the student from scheduled tribe community?</strong></td><td>${a.tribecommunity}</td></tr>
+      <tr><td><strong>Is the caste entitled to get ex-gratia salary?</strong></td><td>${a.exgratiasalary}</td></tr>
+      <tr><td><strong>Is the student a convert from Hinduism to Christianity?</strong></td><td>${a.religionchanging}</td></tr>
+      <tr><td><strong>Living with whom:</strong></td><td>${a.living}</td></tr>
+      <tr><td><strong>Is the student for chicken pox? Is scar Available?</strong></td><td>${a.vaccinated}</td></tr>
+      <tr><td><strong>Identification Marks:</strong></td><td>${a.identificationmarks}</td></tr>
+      <tr><td><strong>Blood Group:</strong></td><td>${a.bloodGroup}</td></tr>
+      <tr><td><strong>Is the student Physically challenged?</strong></td><td>${a.physical}</td></tr>
+      <tr><td><strong>If Physically challenged, specify:</strong></td><td>${a.physicalDetails}</td></tr>
+    </table>
+    <h2>Parent Details</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><td><strong>Father's Name:</strong></td><td>${a.fatherName}</td></tr>
+      <tr><td><strong>Mother's Name:</strong></td><td>${a.motherName}</td></tr>
+      <tr><td><strong>Father's Occupation:</strong></td><td>${a.fatherOccupation}</td></tr>
+      <tr><td><strong>Mother's Occupation:</strong></td><td>${a.motherOccupation}</td></tr>
+      <tr><td><strong>Father's Annual Income:</strong></td><td>${a.fatherIncome}</td></tr>
+      <tr><td><strong>Mother's Annual Income:</strong></td><td>${a.motherIncome}</td></tr>
+      <tr><td><strong>Address:</strong></td><td>${a.address}</td></tr>
+      <tr><td><strong>Pincode:</strong></td><td>${a.pincode}</td></tr>
+      <tr><td><strong>Telephone Number:</strong></td><td>${a.telephoneNumber}</td></tr>
+      <tr><td><strong>Mobile Number:</strong></td><td>${a.mobileNumber}</td></tr>
+      <tr><td><strong>Guardian's Name:</strong></td><td>${a.guardianName}</td></tr>
+      <tr><td><strong>Guardian's Occupation:</strong></td><td>${a.guardianOccupation}</td></tr>
+      <tr><td><strong>Guardian's Address:</strong></td><td>${a.guardianAddress}</td></tr>
+      <tr><td><strong>Guardian Phone Number:</strong></td><td>${a.guardianNumber}</td></tr>
+      <tr><td><strong>Is parent consent letter attached?</strong></td><td>${a.parentconsentform}</td></tr>
+    </table>
+    <h2>Academic Details</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><td colspan="2"><strong>Student's Academic History</strong></td></tr>
+      <tr><th>School Name</th><th>Standard</th><th>Duration</th></tr>
+      ${(() => {
+        let h = a?.academicHistory;
+        if (!h || h === "") return `<tr><td colspan="3">No Academic History</td></tr>`;
+        if (typeof h === "string") { try { h = JSON.parse(h); } catch { return `<tr><td colspan="3">Invalid Data</td></tr>`; } }
+        if (!Array.isArray(h) || h.length === 0) return `<tr><td colspan="3">No Academic History</td></tr>`;
+        return h.map(item => `<tr><td>${item?.schoolName||""}</td><td>${item?.standard||""}</td><td>${item?.duration||""}</td></tr>`).join("");
+      })()}
+      <tr><td><strong>Has He/She passed in the last class studied?</strong></td><td>${a.passorfail}</td></tr>
+      <tr><td><strong>Is T.C/E.S.L.C/Record sheet submitted?</strong></td><td>${a.tceslc}</td></tr>
+      <tr><td><strong>First Language Preference</strong></td><td>${a.firstLanguage}</td></tr>
+    </table>
+    <h2>Bank Details</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <tr><td><strong>Bank Name:</strong></td><td>${a.bankName}</td></tr>
+      <tr><td><strong>Branch Name:</strong></td><td>${a.branchName}</td></tr>
+      <tr><td><strong>Account Number:</strong></td><td>${a.accountNumber}</td></tr>
+      <tr><td><strong>IFSC Code:</strong></td><td>${a.ifsccode}</td></tr>
+    </table>
   `;
 
-    return printContent;
-  }
+  // ── Lock tooltip helper ──────────────────────────────────────────────────
+  const getLockTooltip = (student) => {
+    if (!student.isLocked) return "";
+    if (student.isPromoted) return "Cannot edit — student already promoted";
+    if (student.isDemoted)  return "Cannot edit — student already demoted";
+    return "Cannot edit — student record is locked";
+  };
 
+  const getLockEditTitle = (student) => {
+    if (!student.isLocked) return "Edit Application";
+    if (student.isPromoted) return "Cannot edit — student already promoted";
+    if (student.isDemoted)  return "Cannot edit — student already demoted";
+    return "Cannot edit — student record is locked";
+  };
 
+  const getLockEditWarning = (student) => {
+    if (student.isPromoted) return "This student has already been promoted. Past year data cannot be edited.";
+    if (student.isDemoted)  return "This student has already been demoted. Past year data cannot be edited.";
+    return "This student record is locked and cannot be edited.";
+  };
 
+  // ── Excel Download ────────────────────────────────────────────────────────
+  const handleDownloadExcel = () => {
+    if (filteredStudents.length === 0) { message.warning("No data to export."); return; }
+    const rows = filteredStudents.map((s, i) => ({
+      "S.No":                                                   i + 1,
+      "Admission Number":                                       s.admissionNumber || "",
+      "School":                                                 s.School?.name || "",
+      "Academic Year":                                          s.academicYear || "",
+      "Date Of Join":                                           s.dateofjoin || "",
+      "EMIS Number":                                            s.emisNum || "",
+      "Aadhar Number":                                          s.aadharNumber || "",
+      "Name":                                                   s.name || "",
+      "Gender":                                                 s.gender || "",
+      "Grade":                                                  s.Grade?.grade || "",
+      "Section":                                                s.Section?.sectionName || "",
+      "Date of Birth":                                          s.dob || "",
+      "Nationality":                                            s.nationality || "",
+      "State":                                                  s.state || "",
+      "Mother Tongue":                                          s.motherTongue || "",
+      "Religion":                                               s.religion || "",
+      "Home Town":                                              s.hometown || "",
+      "Community":                                              s.community || "",
+      "Caste":                                                  s.caste || "",
+      "Scheduled Tribe Community":                              s.tribecommunity || "",
+      "Ex-Gratia Salary":                                       s.exgratiasalary || "",
+      "Convert from Hinduism to Christianity":                  s.religionchanging || "",
+      "Living With":                                            s.living || "",
+      "Chicken Pox Vaccinated":                                 s.vaccinated || "",
+      "Identification Marks":                                   s.identificationmarks || "",
+      "Blood Group":                                            s.bloodGroup || "",
+      "Physically Challenged":                                  s.physical || "",
+      "Physical Challenge Details":                             s.physicalDetails || "",
+      "Father Name":                                            s.fatherName || "",
+      "Mother Name":                                            s.motherName || "",
+      "Father Occupation":                                      s.fatherOccupation || "",
+      "Mother Occupation":                                      s.motherOccupation || "",
+      "Father Annual Income":                                   s.fatherIncome || "",
+      "Mother Annual Income":                                   s.motherIncome || "",
+      "Address":                                                s.address || "",
+      "Pincode":                                                s.pincode || "",
+      "Telephone Number":                                       s.telephoneNumber || "",
+      "Mobile Number":                                          s.mobileNumber || "",
+      "Guardian Name":                                          s.guardianName || "",
+      "Guardian Occupation":                                    s.guardianOccupation || "",
+      "Guardian Address":                                       s.guardianAddress || "",
+      "Guardian Phone":                                         s.guardianNumber || "",
+      "Parent Consent Form":                                    s.parentconsentform || "",
+      "Pass or Fail":                                           s.passorfail || "",
+      "TC/ESLC/Record Sheet Submitted":                         s.tceslc || "",
+      "First Language Preference":                              s.firstLanguage || "",
+      "Bank Name":                                              s.bankName || "",
+      "Branch Name":                                            s.branchName || "",
+      "Account Number":                                         s.accountNumber || "",
+      "IFSC Code":                                              s.ifsccode || "",
+      "Status":                                                 s.status || "",
+      "Is Promoted":                                            s.isPromoted ? "Yes" : "No",
+      "Is Demoted":                                             s.isDemoted  ? "Yes" : "No",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Auto column widths
+    const colWidths = Object.keys(rows[0] || {}).map(key => ({
+      wch: Math.max(key.length, ...rows.map(r => String(r[key] || "").length), 10)
+    }));
+    ws["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SSLC Students");
+    const fileName = `SSLC_Students${selectedYear ? `_${selectedYear}` : ""}_${dayjs().format("YYYY-MM-DD")}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    message.success(`Exported ${filteredStudents.length} records to Excel`);
+  };
+
+  // ── Pagination helpers ────────────────────────────────────────────────────
+  // Derived unique grades & sections for filter dropdowns
+  const gradeOptions = React.useMemo(() => {
+    const map = new Map();
+    studentsslcs.forEach(s => {
+      const id = s.Grade?.id || s.grade_id;
+      const name = s.Grade?.grade;
+      if (id && name && name !== "N/A") map.set(id, name);
+    });
+    return [...map.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [studentsslcs]);
+
+  const sectionOptions = React.useMemo(() => {
+    const map = new Map();
+    studentsslcs
+      .filter(s => !filterGrade || String(s.Grade?.id || s.grade_id) === String(filterGrade))
+      .forEach(s => {
+        const id = s.Section?.id || s.section_id;
+        const name = s.Section?.sectionName;
+        if (id && name && name !== "N/A") map.set(id, name);
+      });
+    return [...map.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [studentsslcs, filterGrade]);
+
+  const filteredStudents = React.useMemo(() => {
+    return studentsslcs.filter(s => {
+      const gradeMatch   = !filterGrade   || String(s.Grade?.id   || s.grade_id)   === String(filterGrade);
+      const sectionMatch = !filterSection || String(s.Section?.id || s.section_id) === String(filterSection);
+      return gradeMatch && sectionMatch;
+    });
+  }, [studentsslcs, filterGrade, filterSection]);
+
+  const totalPages    = Math.ceil(filteredStudents.length / PAGE_SIZE);
+  const pagedStudents = filteredStudents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const getPaginationPages = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ display: "flex" }}>
-      <Sidebar />
-      <div className="container mt-4" style={{ marginLeft: "250px", flex: 1 }}>
-        <h2 className="mb-4">Student List for SSLC</h2>
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <Button
-            type="primary"
-            onClick={() => navigate("/create-studentsslc")}
-          >
-            Create SSLC Application
-          </Button>
+    <Layout>
+      <div className="app-page" style={{ fontFamily: FF }}>
 
-          {/* <Button type="primary" onClick={handleOpenPromoteModal}>
-            Promote
-          </Button>
-          <PromoteStudentModal
-            open={isPromoteModalOpen}
-            onClose={handleClosePromoteModal}
-            schoolId={user?.school?.id}
-          /> */}
+        {/* ── Page title ───────────────────────────────────────────────── */}
+        <div style={{ marginBottom: 22 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: COLOR.text, margin: 0, letterSpacing: "-0.3px", fontFamily: FF }}>
+            Student List for SSLC
+          </h1>
+          <div style={{ width: 40, height: 3, background: COLOR.blueLt, borderRadius: 2, marginTop: 6 }} />
         </div>
 
-        <div className="table-responsive">
-          <table className="table table-bordered table-striped">
-            <thead className="table-dark">
-              <tr>
-                <th>S.No</th>
-                <th>Admission No</th>
-                <th>School</th>
-                <th>Academic Year</th>
-                <th>Date Of Join</th>
-                <th>Name</th>
-                <th>Gender</th>
-                <th>Grade</th>
-                <th>Section</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {studentsslcs.length > 0 ? (
-                studentsslcs.map((student, index) => (
-                  <tr key={student.id}>
-                    <td>{index + 1}</td>
-                    <td>{student.admissionNumber}</td>
-                    <td>{role === "superadmin" ? student.School?.name : user.school?.name}</td>
-                    <td>{student.academicYear}</td>
-                    <td>{student.dateofjoin}</td>
-                    <td>{student.name}</td>
-                    <td>{student.gender}</td>
-                    <td>{student.Grade?.grade || "N/A"}</td>
-                    <td>{student.Section?.sectionName || "N/A"}</td>
-                    <td style={{ textAlign: "center" }}>
-                      <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+        {/* ── Top bar ─────────────────────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
 
-                        {/* VIEW */}
-                        <div style={iconSlotStyle}>
-                          <EyeOutlined
-                            title="View Student"
-                            style={{ fontSize: 18, color: "#003366", cursor: "pointer" }}
-                            onClick={() => handleView(student.id)}
-                          />
-                        </div>
+            {/* Filter badge */}
+            {(selectedSchool !== "all" || selectedYear) && (
+              <div style={{ fontSize: "13px", color: COLOR.filterText, background: COLOR.filterBg, padding: "6px 14px", borderRadius: 6, fontWeight: 500, fontFamily: FF }}>
+                Showing: {selectedSchool !== "all" ? selectedSchoolName : "All Schools"}{selectedYear ? ` | ${selectedYear}` : ""}
+              </div>
+            )}
 
-                        {/* EDIT */}
-                        <div style={iconSlotStyle}>
-                          <EditOutlined
-                            title="Edit Application"
-                            style={{ fontSize: 18, color: "#1890ff", cursor: "pointer" }}
-                            onClick={() => navigate(`/edit-studentsslc/${student.id}`)}
-                          />
-                        </div>
+            {/* Create button */}
+            {isAdminRole && (
+              <button
+                onClick={() => navigate("/create-studentsslc")}
+                onMouseEnter={e => { e.currentTarget.style.background = COLOR.blue; e.currentTarget.style.boxShadow = "0 4px 14px rgba(30,64,175,0.35)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = COLOR.blueLt; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.28)"; }}
+                style={{ all: "unset", display: "inline-flex", alignItems: "center", gap: 7, background: COLOR.blueLt, color: "#fff", padding: "9px 20px", borderRadius: 8, fontSize: FS, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(59,130,246,0.28)", transition: "all 0.18s", fontFamily: FF }}
+              >
+                Create SSLC Application
+              </button>
+            )}
 
-                        {/* PRINT */}
-                        <div style={iconSlotStyle}>
-                          <PrinterOutlined
-                            title="Print Student Details"
-                            style={{ fontSize: 18, color: "rgb(194, 92, 32)", cursor: "pointer" }}
-                            onClick={() => handlePrintClick(student)}
-                          />
-                        </div>
+              {/* ── Grade Filter ── */}
+            <Select
+              allowClear
+              placeholder="All Grades"
+              value={filterGrade || undefined}
+              onChange={val => setFilterGrade(val || "")}
+              style={{ width: 140, fontFamily: FF, fontSize: FS }}
+              size="middle"
+            >
+              {gradeOptions.map(g => <Option key={g.id} value={g.id}>{g.name}</Option>)}
+            </Select>
 
-                        {/* DELETE (superadmin only, but space always reserved) */}
-                        <div style={iconSlotStyle}>
-                          {role === "superadmin" && (
-                            <DeleteOutlined
-                              title="Remove Application"
-                              style={{ fontSize: 18, color: "#e21216", cursor: "pointer" }}
-                              onClick={() => handleDelete(student.id, student.name)}
+            {/* ── Section Filter ── */}
+            <Select
+              allowClear
+              placeholder="All Sections"
+              value={filterSection || undefined}
+              onChange={val => setFilterSection(val || "")}
+              style={{ width: 150, fontFamily: FF, fontSize: FS }}
+              size="middle"
+              disabled={!filterGrade}
+            >
+              {sectionOptions.map(s => <Option key={s.id} value={s.id}>{s.name}</Option>)}
+            </Select>
+
+            {/* ── Excel Download Icon ── */}
+            <Tooltip title="Download Excel">
+              <button
+                onClick={handleDownloadExcel}
+                onMouseEnter={e => { e.currentTarget.style.background = "#15803d"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(21,128,61,0.35)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#16a34a"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(21,128,61,0.22)"; }}
+                style={{ all: "unset", display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, background: "#16a34a", color: "#fff", borderRadius: 8, cursor: "pointer", boxShadow: "0 2px 8px rgba(21,128,61,0.22)", transition: "all 0.18s", flexShrink: 0 }}
+              >
+                {/* Excel SVG icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.5 19l-1.75-3.08L5 19H3.27l2.6-4.08L3.27 11H5l1.75 3.08L8.5 11h1.73l-2.6 3.92L10.23 19H8.5zm5.5 0h-1.5l-1.5-2.4-1.5 2.4H8l2.25-3.5L8 12h1.5l1.5 2.4 1.5-2.4H14l-2.25 3.5L14 19z"/>
+                </svg>
+              </button>
+            </Tooltip>
+
+            {/* Selection count */}
+            {selectedRowKeys.length > 0 && (
+              <span style={{ fontSize: 13, fontWeight: 600, color: COLOR.tcColor, background: COLOR.tcBg, border: `1px solid ${COLOR.tcColor}`, borderRadius: 6, padding: "4px 12px" }}>
+                {selectedRowKeys.length} student{selectedRowKeys.length > 1 ? "s" : ""} selected
+              </span>
+            )}
+          </div>
+
+          {/* Bulk actions dropdown */}
+          {isAdminRole && (
+            <Dropdown menu={{ items: cornerDropdownItems }} trigger={["click"]} placement="bottomRight">
+              <Tooltip title={selectedRowKeys.length === 0 ? "Select students to perform bulk actions" : `Actions for ${selectedRowKeys.length} selected student(s)`}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: "50%",
+                  background: selectedRowKeys.length > 0 ? COLOR.tcColor : "#f0f0f0",
+                  display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                  border: selectedRowKeys.length > 0 ? `2px solid ${COLOR.tcColor}` : "2px solid #d9d9d9",
+                  transition: "all 0.2s",
+                  boxShadow: selectedRowKeys.length > 0 ? "0 2px 8px rgba(114,46,209,0.35)" : "none",
+                }}>
+                  <SettingOutlined style={{ fontSize: 18, color: selectedRowKeys.length > 0 ? "#fff" : "#888" }} />
+                </div>
+              </Tooltip>
+            </Dropdown>
+          )}
+        </div>
+
+        {/* ── Table card ──────────────────────────────────────────────── */}
+        <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.07)", overflow: "hidden", border: `1px solid ${COLOR.border}` }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: FF, fontSize: FS }}>
+              <thead>
+                <tr style={{ background: COLOR.headBg }}>
+                  {isAdminRole && (
+                    <th style={{ padding: "13px 16px", width: 44, textAlign: "center" }}>
+                      <Checkbox checked={allSelected} indeterminate={someSelected} onChange={toggleSelectAll} />
+                    </th>
+                  )}
+                  {["S.No", "Admission No", "School", "Academic Year", "Date Of Join", "Name", "Gender", "Grade", "Section", "Action"].map((h, i) => (
+                    <th key={h} style={{ padding: "13px 16px", fontWeight: 600, fontSize: "13px", color: COLOR.headText, textAlign: i === 9 ? "center" : "left", whiteSpace: "nowrap", letterSpacing: "0.2px" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pagedStudents.length > 0 ? (
+                  pagedStudents.map((student, index) => {
+                    const globalIndex = (currentPage - 1) * PAGE_SIZE + index;
+                    const isSelected = selectedRowKeys.includes(student.id);
+                    const baseBg     = student.isLocked ? COLOR.rowLocked : index % 2 === 0 ? COLOR.rowOdd : COLOR.rowEven;
+                    const activeBg   = isSelected ? COLOR.rowSel : baseBg;
+                    return (
+                      <tr
+                        key={student.id}
+                        onMouseEnter={e => e.currentTarget.style.background = student.isLocked ? COLOR.rowLocked : COLOR.rowHover}
+                        onMouseLeave={e => e.currentTarget.style.background = activeBg}
+                        style={{ background: activeBg, transition: "background 0.12s", borderBottom: `1px solid ${COLOR.border}`, opacity: student.isLocked ? 0.82 : 1 }}
+                      >
+                        {/* Checkbox cell */}
+                        {isAdminRole && (
+                          <td style={{ padding: "10px 16px", textAlign: "center" }}>
+                            <Checkbox
+                              checked={isSelected}
+                              disabled={student.isLocked}
+                              onChange={() => !student.isLocked && toggleSelectRow(student.id)}
                             />
+                          </td>
+                        )}
+
+                        <td style={{ padding: "11px 16px", color: COLOR.text, fontWeight: 600 }}>{globalIndex + 1}</td>
+                        <td style={{ padding: "11px 16px", color: COLOR.blueLt, fontWeight: 600, whiteSpace: "nowrap" }}>{student.admissionNumber}</td>
+                        <td style={{ padding: "11px 16px", color: COLOR.textMid, whiteSpace: "nowrap" }}>
+                          {isSuperAdmin ? (student.School?.name || selectedSchoolName || "N/A") : (user.school?.name || "N/A")}
+                        </td>
+                        <td style={{ padding: "11px 16px", color: COLOR.textMid, whiteSpace: "nowrap" }}>{student.academicYear}</td>
+                        <td style={{ padding: "11px 16px", color: COLOR.textMid, whiteSpace: "nowrap" }}>{student.dateofjoin}</td>
+
+                        {/* Name + Promoted / Demoted badge */}
+                        <td style={{ padding: "11px 16px", color: COLOR.text, fontWeight: 500 }}>
+                          {student.name}
+                          {student.isPromoted && (
+                            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, background: "#e6f4ff", color: "#1677ff", border: "1px solid #91caff", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>
+                              Promoted
+                            </span>
                           )}
-                        </div>
-                      </div>
+                          {student.isDemoted && (
+                            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, background: "#fff7e6", color: "#b45309", border: "1px solid #fcd34d", borderRadius: 4, padding: "1px 6px", verticalAlign: "middle" }}>
+                              Demoted
+                            </span>
+                          )}
+                        </td>
+
+                        <td style={{ padding: "11px 16px", color: COLOR.textMid }}>{student.gender}</td>
+                        <td style={{ padding: "11px 16px", color: COLOR.textMid }}>{student.Grade?.grade || "N/A"}</td>
+                        <td style={{ padding: "11px 16px", color: COLOR.textMid }}>{student.Section?.sectionName || "N/A"}</td>
+
+                        {/* Action icons */}
+                        <td style={{ padding: "8px 16px", textAlign: "center" }}>
+                          <div style={{ display: "flex", justifyContent: "center", gap: 2 }}>
+
+                            {/* View — always */}
+                            <IconBtn icon={<EyeOutlined />} title="View Student" color={COLOR.blue} bg={COLOR.viewBg} onClick={() => handleView(student.id)} />
+
+                            {/* Edit — blocked if locked */}
+                            {isAdminRole && (
+                              <IconBtn
+                                icon={<EditOutlined />}
+                                title={getLockEditTitle(student)}
+                                color={COLOR.editColor} bg={COLOR.editBg}
+                                disabled={student.isLocked}
+                                onClick={() => {
+                                  if (student.isLocked) { message.warning(getLockEditWarning(student)); return; }
+                                  navigate(`/edit-studentsslc/${student.id}`);
+                                }}
+                              />
+                            )}
+
+                            {/* Print — always */}
+                            <IconBtn icon={<PrinterOutlined />} title="Print Student" color={COLOR.printColor} bg={COLOR.printBg} onClick={() => handlePrintClick(student.id)} />
+
+                            {/* Issue TC — blocked if locked */}
+                            {isAdminRole && (
+                              <IconBtn
+                                icon={<FileTextOutlined />}
+                                title={student.isLocked ? "Cannot issue TC — student record is locked" : "Issue TC"}
+                                color={COLOR.tcColor} bg={COLOR.tcBg}
+                                disabled={student.isLocked}
+                                onClick={() => {
+                                  if (student.isLocked) { message.warning("TC cannot be issued for past year data."); return; }
+                                  openTcModal([student.id]);
+                                }}
+                              />
+                            )}
+
+                            {/* Delete — superadmin only */}
+                            <div style={{ width: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {isSuperAdmin && (
+                                <IconBtn icon={<DeleteOutlined />} title="Remove Application" color={COLOR.danger} bg={COLOR.dangerBg} onClick={() => handleDelete(student.id, student.name)} />
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={isAdminRole ? 11 : 10} style={{ textAlign: "center", padding: "40px 16px", color: COLOR.textSoft, fontSize: FS }}>
+                      No Students found{filterGrade || filterSection ? " for the selected grade/section" : selectedYear ? ` for ${selectedYear}` : ""}.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8">No Students found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Pagination ───────────────────────────────────────────── */}
+          {studentsslcs.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderTop: `1px solid ${COLOR.border}`, background: "#fafbfc", flexWrap: "wrap", gap: 10 }}>
+              <span style={{ fontSize: 13, color: COLOR.textSoft, fontFamily: FF }}>
+                Showing <strong>{filteredStudents.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}</strong>–<strong>{Math.min(currentPage * PAGE_SIZE, filteredStudents.length)}</strong> of <strong>{filteredStudents.length}</strong> students
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {/* Prev */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{ all: "unset", width: 32, height: 32, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: currentPage === 1 ? "not-allowed" : "pointer", background: currentPage === 1 ? "#f0f0f0" : "#fff", border: `1px solid ${COLOR.border}`, color: currentPage === 1 ? "#c0c0c0" : COLOR.textMid, fontSize: 13 }}
+                >
+                  <LeftOutlined />
+                </button>
+
+                {/* Page numbers */}
+                {getPaginationPages().map((page, i) =>
+                  page === "..." ? (
+                    <span key={`dots-${i}`} style={{ padding: "0 4px", color: COLOR.textSoft, fontSize: 13 }}>…</span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{ all: "unset", width: 32, height: 32, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, fontWeight: currentPage === page ? 700 : 400, background: currentPage === page ? "#1a2236" : "#fff", color: currentPage === page ? "#fff" : COLOR.textMid, border: `1px solid ${currentPage === page ? "#1a2236" : COLOR.border}`, transition: "all 0.15s" }}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+
+                {/* Next */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{ all: "unset", width: 32, height: 32, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", cursor: currentPage === totalPages ? "not-allowed" : "pointer", background: currentPage === totalPages ? "#f0f0f0" : "#fff", border: `1px solid ${COLOR.border}`, color: currentPage === totalPages ? "#c0c0c0" : COLOR.textMid, fontSize: 13 }}
+                >
+                  <RightOutlined />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* ════════════════════════════════════════════════════════════════
+            BULK WITHDRAW MODAL
+        ════════════════════════════════════════════════════════════════ */}
+        <Modal
+          title={<span style={{ color: "#d4380d", fontFamily: FF }}><ExclamationCircleOutlined style={{ marginRight: 8 }} />Withdraw {selectedRowKeys.length} Student{selectedRowKeys.length > 1 ? "s" : ""} to TC</span>}
+          open={isBulkWithdrawModalVisible}
+          onCancel={() => { setIsBulkWithdrawModalVisible(false); setBulkWithdrawReason(""); }}
+          footer={[
+            <Button key="cancel" onClick={() => { setIsBulkWithdrawModalVisible(false); setBulkWithdrawReason(""); }}>Cancel</Button>,
+            <Button key="confirm" type="primary" danger loading={withdrawing} onClick={confirmBulkWithdraw}>Confirm Withdraw</Button>,
+          ]}
+        >
+          <p>Are you sure you want to withdraw <strong>{selectedRowKeys.length}</strong> student(s) to TC?</p>
+          <Select
+            style={{ width: "100%", marginTop: 10 }}
+            placeholder="Select reason (optional)"
+            value={bulkWithdrawReason || undefined}
+            onChange={(val) => setBulkWithdrawReason(val)}
+            allowClear
+          >
+            <Option value="TC">TC</Option>
+            <Option value="Left School">Left School</Option>
+            <Option value="Passed Out">Passed Out</Option>
+            <Option value="Other">Other</Option>
+          </Select>
+        </Modal>
+
+        {/* ════════════════════════════════════════════════════════════════
+            TC ISSUE MODAL
+        ════════════════════════════════════════════════════════════════ */}
+        <Modal
+          title={<span style={{ fontFamily: FF, fontWeight: 700, color: COLOR.tcColor }}>Issue TC for {pendingTcIds.length} Student{pendingTcIds.length > 1 ? "s" : ""}</span>}
+          open={isTcModalVisible}
+          onCancel={() => { setIsTcModalVisible(false); setPendingTcIds([]); }}
+          footer={[
+            <Button key="cancel" onClick={() => { setIsTcModalVisible(false); setPendingTcIds([]); }}>Cancel</Button>,
+            <Button key="submit" type="primary" loading={tcLoading} onClick={handleBulkTcSubmit} style={{ background: COLOR.tcColor, borderColor: COLOR.tcColor }}>Issue TC</Button>,
+          ]}
+          width={560}
+        >
+          <Form form={tcForm} layout="vertical" style={{ fontFamily: FF }}>
+            <Form.Item name="tcDate" label="TC Date" rules={[{ required: true, message: "TC Date is required" }]}>
+              <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" />
+            </Form.Item>
+            <Form.Item name="reason" label="Reason for Leaving" rules={[{ required: true, message: "Reason is required" }]}>
+              <Select placeholder="Select reason">
+                <Option value="Higher Studies">Higher Studies (Passed Out)</Option>
+                <Option value="Migration">Migration</Option>
+                <Option value="Personal Reasons">Personal Reasons</Option>
+                <Option value="Other">Other</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="conductCertificate" label="Conduct Certificate" rules={[{ required: true, message: "Required" }]}>
+              <Select>
+                <Option value="Good">Good</Option>
+                <Option value="Excellent">Excellent</Option>
+                <Option value="Satisfactory">Satisfactory</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item name="remarks" label="Remarks (optional)">
+              <Input.TextArea rows={3} placeholder="Any additional remarks..." />
+            </Form.Item>
+          </Form>
+          <p style={{ marginTop: 4, color: "#8f6104", fontSize: 13 }}>⚠️ Once TC is issued, the student(s) will be removed from this list and a sequential withdrawn number will be assigned per school.</p>
+        </Modal>
+
+        {/* ════════════════════════════════════════════════════════════════
+            VIEW MODAL
+        ════════════════════════════════════════════════════════════════ */}
         {isModalVisible && selectedApplication && (
           <Modal
-            title="Application Details"
+            title={<span style={{ fontFamily: FF, fontWeight: 700, fontSize: 16, color: COLOR.text }}>Student Details</span>}
             open={isModalVisible}
             onCancel={() => setIsModalVisible(false)}
             footer={null}
             width={1200}
           >
-            <Descriptions bordered column={2}>
-              <Descriptions.Item label="Admission Number">
-                {selectedApplication.admissionNumber}
+            <Descriptions bordered column={2} size="small"
+              labelStyle={{ fontWeight: 600, color: COLOR.textMid, fontFamily: FF, fontSize: "12.5px", background: "#f8fafc" }}
+              contentStyle={{ fontFamily: FF, fontSize: "12.5px", color: COLOR.text }}
+            >
+              <Descriptions.Item label="Admission Number">{selectedApplication.admissionNumber}</Descriptions.Item>
+              <Descriptions.Item label="School Name">{selectedApplication.School?.name || "N/A"}</Descriptions.Item>
+              <Descriptions.Item label="Date Of Join">{selectedApplication.dateofjoin}</Descriptions.Item>
+              <Descriptions.Item label="Academic Year">{selectedApplication.academicYear}</Descriptions.Item>
+              <Descriptions.Item label="EMIS Number">{selectedApplication.emisNum}</Descriptions.Item>
+              <Descriptions.Item label="Aadhar Number">{selectedApplication.aadharNumber}</Descriptions.Item>
+              <Descriptions.Item label="Name">{selectedApplication.name}</Descriptions.Item>
+              <Descriptions.Item label="Gender">{selectedApplication.gender}</Descriptions.Item>
+              <Descriptions.Item label="Grade">{selectedApplication.Grade?.grade || "N/A"}</Descriptions.Item>
+              <Descriptions.Item label="Section">{selectedApplication.Section?.sectionName || "N/A"}</Descriptions.Item>
+              <Descriptions.Item label="Date of Birth">{selectedApplication.dob}</Descriptions.Item>
+              <Descriptions.Item label="Age">{formatAge(selectedApplication.age)}</Descriptions.Item>
+              <Descriptions.Item label="Nationality">{selectedApplication.nationality}</Descriptions.Item>
+              <Descriptions.Item label="State">{selectedApplication.state}</Descriptions.Item>
+              <Descriptions.Item label="Mother Tongue">{selectedApplication.motherTongue}</Descriptions.Item>
+              <Descriptions.Item label="Religion">{selectedApplication.religion}</Descriptions.Item>
+              <Descriptions.Item label="Home Town">{selectedApplication.hometown}</Descriptions.Item>
+              <Descriptions.Item label="Community">{selectedApplication.community}</Descriptions.Item>
+              <Descriptions.Item label="Caste">{selectedApplication.caste}</Descriptions.Item>
+              <Descriptions.Item label="Is the student from scheduled tribe community?">{selectedApplication.tribecommunity}</Descriptions.Item>
+              <Descriptions.Item label="Is the caste entitled to get ex-gratia salary?">{selectedApplication.exgratiasalary}</Descriptions.Item>
+              <Descriptions.Item label="Is the student a convert from Hinduism to Christianity?">{selectedApplication.religionchanging}</Descriptions.Item>
+              <Descriptions.Item label="Living with whom">{selectedApplication.living}</Descriptions.Item>
+              <Descriptions.Item label="Is the student for chicken pox? Is scar Available?">{selectedApplication.vaccinated}</Descriptions.Item>
+              <Descriptions.Item label="Identification Marks">{selectedApplication.identificationmarks}</Descriptions.Item>
+              <Descriptions.Item label="Blood Group">{selectedApplication.bloodGroup}</Descriptions.Item>
+              <Descriptions.Item label="Is the student Physically challenged?">{selectedApplication.physical}</Descriptions.Item>
+              <Descriptions.Item label="If He/She Physically challenged Specify, Otherwise Enter Null">{selectedApplication.physicalDetails}</Descriptions.Item>
+              <Descriptions.Item label="Father Name">{selectedApplication.fatherName}</Descriptions.Item>
+              <Descriptions.Item label="Mother's Name">{selectedApplication.motherName}</Descriptions.Item>
+              <Descriptions.Item label="Father's Occupation">{selectedApplication.fatherOccupation}</Descriptions.Item>
+              <Descriptions.Item label="Mother's Occupation">{selectedApplication.motherOccupation}</Descriptions.Item>
+              <Descriptions.Item label="Father's Annual Income">{selectedApplication.fatherIncome}</Descriptions.Item>
+              <Descriptions.Item label="Mother's Annual Income">{selectedApplication.motherIncome}</Descriptions.Item>
+              <Descriptions.Item label="Address">{selectedApplication.address}</Descriptions.Item>
+              <Descriptions.Item label="Pincode">{selectedApplication.pincode}</Descriptions.Item>
+              <Descriptions.Item label="Telephone Number">{selectedApplication.telephoneNumber}</Descriptions.Item>
+              <Descriptions.Item label="Mobile Number">{selectedApplication.mobileNumber}</Descriptions.Item>
+              <Descriptions.Item label="Guardian's Name">{selectedApplication.guardianName}</Descriptions.Item>
+              <Descriptions.Item label="Guardian's Occupation">{selectedApplication.guardianOccupation}</Descriptions.Item>
+              <Descriptions.Item label="Guardian Address">{selectedApplication.guardianAddress}</Descriptions.Item>
+              <Descriptions.Item label="Guardian Phone Number">{selectedApplication.guardianNumber}</Descriptions.Item>
+              <Descriptions.Item label="Is parent consent Hardcopy attached?">{selectedApplication.parentconsentform}</Descriptions.Item>
+              <Descriptions.Item label="Student's Academic History" span={2}>
+                {(() => {
+                  let history = selectedApplication?.academicHistory;
+                  if (!history) return "No Academic History";
+                  if (typeof history === "string") { try { history = JSON.parse(history); } catch { return "Invalid Academic History Data"; } }
+                  if (!Array.isArray(history)) { history = [history]; }
+                  return history.map((item, i) => (
+                    <div key={i} style={{ marginBottom: 10 }}>
+                      <b>School Name:</b> {item?.schoolName || "N/A"} <br />
+                      <b>Standard:</b> {item?.standard || "N/A"} <br />
+                      <b>Duration:</b> {item?.duration || "N/A"}
+                      <hr />
+                    </div>
+                  ));
+                })()}
               </Descriptions.Item>
-              <Descriptions.Item label="School Name">
-                {selectedApplication.School?.name || "N/A"}
-              </Descriptions.Item>
-              <Descriptions.Item label="Academic Year">
-                {selectedApplication.academicYear}
-              </Descriptions.Item>
-              <Descriptions.Item label="EMIS Number">
-                {selectedApplication.emisNum}
-              </Descriptions.Item>
-              <Descriptions.Item label="Aadhar Number">
-                {selectedApplication.aadharNumber}
-              </Descriptions.Item>
-              <Descriptions.Item label="Name">
-                {selectedApplication.name}
-              </Descriptions.Item>
-              <Descriptions.Item label="Gender">
-                {selectedApplication.gender}
-              </Descriptions.Item>
-              <Descriptions.Item label="Grade">
-                {selectedApplication.Grade?.grade || "N/A"}
-              </Descriptions.Item>
-              <Descriptions.Item label="Section">
-                {selectedApplication.Section?.sectionName || "N/A"}
-              </Descriptions.Item>
-              <Descriptions.Item label="Date of Birth">
-                {selectedApplication.dob}
-              </Descriptions.Item>
-              <Descriptions.Item label="Age">
-                {formatAge(selectedApplication.age)}
-              </Descriptions.Item>
-              <Descriptions.Item label="Nationality">
-                {selectedApplication.nationality}
-              </Descriptions.Item>
-              <Descriptions.Item label="State">
-                {selectedApplication.state}
-              </Descriptions.Item>
-              <Descriptions.Item label="Mother Tongue">
-                {selectedApplication.motherTongue}
-              </Descriptions.Item>
-              <Descriptions.Item label="Religion">
-                {selectedApplication.religion}
-              </Descriptions.Item>
-              <Descriptions.Item label="Home Town">
-                {selectedApplication.hometown}
-              </Descriptions.Item>
-              <Descriptions.Item label="Community">
-                {selectedApplication.community}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is the student from scheduled tribe community?">
-                {selectedApplication.tribecommunity}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is the caste entitled to get ex-gratia salary?">
-                {selectedApplication.exgratiasalary}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is the student a convert from Hinduism to Christianity?">
-                {selectedApplication.religionchanging}
-              </Descriptions.Item>
-              <Descriptions.Item label="Living with whom">
-                {selectedApplication.living}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is the student for chicken pox? Is scar Available?">
-                {selectedApplication.vaccinated}
-              </Descriptions.Item>
-              <Descriptions.Item label="Identification Marks">
-                {selectedApplication.identificationmarks}
-              </Descriptions.Item>
-              <Descriptions.Item label="Blood Group">
-                {selectedApplication.bloodGroup}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is the student Physically challenged?">
-                {selectedApplication.physical}
-              </Descriptions.Item>
-              <Descriptions.Item label="If He/ She Physically challenged Specify, Otherwish Enter Null">
-                {selectedApplication.physicalDetails}
-              </Descriptions.Item>
-              <Descriptions.Item label="Father Name">
-                {selectedApplication.fatherName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Mother's Name">
-                {selectedApplication.motherName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Father's Occupation">
-                {selectedApplication.fatherOccupation}
-              </Descriptions.Item>
-              <Descriptions.Item label="Mother's Occupation">
-                {selectedApplication.motherOccupation}
-              </Descriptions.Item>
-              <Descriptions.Item label="Father's Annual Income">
-                {selectedApplication.fatherIncome}
-              </Descriptions.Item>
-              <Descriptions.Item label="Mother's Annual Income">
-                {selectedApplication.motherIncome}
-              </Descriptions.Item>
-              <Descriptions.Item label="Address">
-                {selectedApplication.address}
-              </Descriptions.Item>
-              <Descriptions.Item label="Pincode">
-                {selectedApplication.pincode}
-              </Descriptions.Item>
-              <Descriptions.Item label="Telephone Number">
-                {selectedApplication.telephoneNumber}
-              </Descriptions.Item>
-              <Descriptions.Item label="Mobile Number">
-                {selectedApplication.mobileNumber}
-              </Descriptions.Item>
-              <Descriptions.Item label="Guardian's Name">
-                {selectedApplication.guardianName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Guardian's Occupation">
-                {selectedApplication.guardianOccupation}
-              </Descriptions.Item>
-              <Descriptions.Item label="Guardian Address">
-                {selectedApplication.guardianAddress}
-              </Descriptions.Item>
-              <Descriptions.Item label="Guardian Phone Number">
-                {selectedApplication.guardianNumber}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is parent consent Hardcopy is attached?">
-                {selectedApplication.parentconsentform}
-              </Descriptions.Item>
-              <Descriptions.Item label="Student's Academic History">
-                {selectedApplication.academicHistory}
-              </Descriptions.Item>
-              <Descriptions.Item label="Has He/ She passed in the last class studied?">
-                {selectedApplication.passorfail}
-              </Descriptions.Item>
-              <Descriptions.Item label="Is T.C/ E.S.L.C/ Record sheet submitted?">
-                {selectedApplication.tceslc}
-              </Descriptions.Item>
-              <Descriptions.Item label="First Language Preference">
-                {selectedApplication.firstLanguage}
-              </Descriptions.Item>
-              <Descriptions.Item label="Bank Name">
-                {selectedApplication.bankName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Branch Name">
-                {selectedApplication.branchName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Bank Account Number">
-                {selectedApplication.accountNumber}
-              </Descriptions.Item>
-              <Descriptions.Item label="IFSC Code">
-                {selectedApplication.ifsccode}
-              </Descriptions.Item>
+              <Descriptions.Item label="Has He/She passed in the last class studied?">{selectedApplication.passorfail}</Descriptions.Item>
+              <Descriptions.Item label="Is T.C/E.S.L.C/Record sheet submitted?">{selectedApplication.tceslc}</Descriptions.Item>
+              <Descriptions.Item label="First Language Preference">{selectedApplication.firstLanguage}</Descriptions.Item>
+              <Descriptions.Item label="Bank Name">{selectedApplication.bankName}</Descriptions.Item>
+              <Descriptions.Item label="Branch Name">{selectedApplication.branchName}</Descriptions.Item>
+              <Descriptions.Item label="Bank Account Number">{selectedApplication.accountNumber}</Descriptions.Item>
+              <Descriptions.Item label="IFSC Code">{selectedApplication.ifsccode}</Descriptions.Item>
             </Descriptions>
           </Modal>
         )}
 
-        <Modal
-          title="Edit SSLC Application"
-          visible={isEditModalVisible}
-          onCancel={() => setIsEditModalVisible(false)}
-          footer={null}
-          width={1250}
-        >
-          <Steps current={currentStep} style={{ marginBottom: 24 }}>
-            <Steps.Step title="Academic Details" />
-            <Steps.Step title="Student Information" />
-            <Steps.Step title="Parent Information" />
-            <Steps.Step title="General Information" />
-            <Steps.Step title="Bank Details" />
-          </Steps>
-
-          <Form
-            layout="vertical"
-            form={editForm}
-            initialValues={editFormData}
-            onValuesChange={(changed, all) => setEditFormData({ ...editFormData, ...all })}
-          >
-            {currentStep === 0 && (
-              <>
-                {/* Academic Year (required) */}
-                <Form.Item
-                  label="Academic Year"
-                  name="academicYear"
-                  rules={[{ required: true, message: "Select Academic Year!" }]}
-                >
-                  <Select placeholder="Select Year">
-                    <Select.Option value="2025-2026">2025-2026</Select.Option>
-                  </Select>
-                </Form.Item>
-
-                {/* EMIS Number (required, 12-digit validation) */}
-                <Form.Item
-                  label="EMIS Number"
-                  name="emisNum"
-                  rules={[
-                    { required: true, message: "Enter EMIS Number!" },
-                    { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" }
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-
-                {/* Aadhar Number (required, 12-digit validation) */}
-                <Form.Item
-                  label="Aadhar Number"
-                  name="aadharNumber"
-                  rules={[
-                    { required: true, message: "Enter Aadhar Number!" },
-                    { pattern: /^[0-9]{12}$/, message: "Enter a valid 12-digit number!" }
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-              </>
-            )}
-
-            {currentStep === 1 && (
-              <>
-                <Form.Item
-                  label="Full Name"
-                  name="name"
-                  rules={[{ required: true, message: "Please enter student name!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Gender"
-                  name="gender"
-                  rules={[{ required: true, message: "Please select gender!" }]}
-                >
-                  <Radio.Group>
-                    <Radio value="Male">Male</Radio>
-                    <Radio value="Female">Female</Radio>
-                    <Radio value="Others">Others</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item
-                  label="Grade"
-                  name="grade_id"
-                  rules={[{ required: true }]}
-                >
-                  <Select
-                    onChange={(value) => {
-                      fetchSectionsBySchoolAndGrade(schoolId, value);
-                      editForm.setFieldsValue({ section_id: null });
-                    }}
-                  >
-                    {grades.map(g => (
-                      <Select.Option key={g.id} value={g.id}>
-                        {g.grade}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <Form.Item
-                  label="Section"
-                  name="section_id"
-                  rules={[{ required: true }]}
-                >
-                  <Select>
-                    {sections.map(sec => (
-                      <Select.Option key={sec.id} value={sec.id}>
-                        {sec.sectionName}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-
-                <Form.Item
-                  label="Date of Birth"
-                  name="dob"
-                  rules={[
-                    { required: true, message: "Please select date of birth!" },
-                    { validator: validateDOB }
-                  ]}
-                >
-                  <Input
-                    type="date"
-                    onChange={(e) => {
-                      const selectedDOB = e.target.value;
-                      const newAge = calculateAge(selectedDOB);
-                      setEditingStudentPageData((prev) => ({
-                        ...prev,
-                        dob: selectedDOB,
-                        age: newAge
-                      }));
-                      editForm.setFieldsValue({ dob: selectedDOB });
-                    }}
-                  />
-                </Form.Item>
-
-                <Form.Item label="Age">
-                  <Input value={formatAge(editingStudentPageData.age)} disabled />
-                </Form.Item>
-
-                <Form.Item
-                  label="Nationality"
-                  name="nationality"
-                  rules={[{ required: true, message: "Please select nationality!" }]}
-                >
-                  <Select placeholder="Select your Nationality">
-                    <Select.Option value="India">India</Select.Option>
-                    <Select.Option value="Non-Indian">Non-Indian</Select.Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item
-                  label="State"
-                  name="state"
-                  rules={[{ required: true, message: "Please select state!" }]}
-                >
-                  <Select placeholder="Select State">
-                    {statesinindia.map(state => (
-                      <Select.Option key={state} value={state}>{state}</Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <Form.Item
-                  label="Mother Tongue"
-                  name="motherTongue"
-                  rules={[{ required: true, message: "Please select mother tongue!" }]}
-                >
-                  <Select placeholder="Select Mother Tongue">
-                    <Option value="Tamil">Tamil</Option>
-                    <Option value="English">English</Option>
-                    <Option value="Hindi">Hindi</Option>
-                    <Option value="Bengali">Bengali</Option>
-                    <Option value="Telugu">Telugu</Option>
-                    <Option value="Marathi">Marathi</Option>
-                    <Option value="Gujarati">Gujarati</Option>
-                    <Option value="Urdu">Urdu</Option>
-                    <Option value="Kannada">Kannada</Option>
-                    <Option value="Odia">Odia</Option>
-                    <Option value="Malayalam">Malayalam</Option>
-                    <Option value="Punjabi">Punjabi</Option>
-                    <Option value="Assamese">Assamese</Option>
-                    <Option value="Others">Others</Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item
-                  label="Home Town"
-                  name="hometown"
-                  rules={[{ required: true, message: "Please enter hometown!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item label="Religion" name="religion">
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Community"
-                  name="community"
-                  rules={[{ required: true, message: "Please select community!" }]}
-                >
-                  <Select placeholder="Select community">
-                    <Option value="BC">BC</Option>
-                    <Option value="MBC">MBC</Option>
-                    <Option value="SC">SC</Option>
-                    <Option value="ST">ST</Option>
-                    <Option value="OC">OC</Option>
-                    <Option value="DNC">DNC</Option>
-                    <Option value="FC">FC</Option>
-                    <Option value="OBC">OBC</Option>
-                    <Option value="BCM">BCM</Option>
-                    <Option value="Others">Others</Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item label="Is the student from scheduled tribe community?" name="tribecommunity">
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item label="Is the caste entitled to get ex-gratia salary?" name="exgratiasalary">
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item label="Is the student a convert from Hinduism to Christianity?" name="religionchanging">
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item label="Living with whom" name="living">
-                  <Select placeholder="Select">
-                    <Select.Option value="Parents">Parents</Select.Option>
-                    <Select.Option value="Guardian">Guardian</Select.Option>
-                    <Select.Option value="Others">Others</Select.Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item label="Is the student for chicken pox? Is scar Available?" name="vaccinated">
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item
-                  label="Identification Marks"
-                  name="identificationmarks"
-                  rules={[{ required: true, message: "Please enter identification marks!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Blood Group"
-                  name="bloodGroup"
-                  rules={[{ required: true, message: "Please select blood group!" }]}
-                >
-                  <Select placeholder="Select blood group" id="bloodGroup">
-                    <Option value="O+ve">O+VE</Option>
-                    <Option value="O-ve">O-VE</Option>
-                    <Option value="A+ve">A+VE</Option>
-                    <Option value="A-ve">A-VE</Option>
-                    <Option value="B+ve">B+VE</Option>
-                    <Option value="B-ve">B-VE</Option>
-                    <Option value="AB+ve">AB+VE</Option>
-                    <Option value="AB-ve">AB-VE</Option>
-                    <Option value="A1+ve">A1+VE</Option>
-                    <Option value="A1-ve">A1-VE</Option>
-                    <Option value="A1B+ve">A1B+VE</Option>
-                    <Option value="A1B-ve">A1B-VE</Option>
-                    <Option value="A2B+ve">A2B+VE</Option>
-                    <Option value="A2B-ve">A2B-VE</Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item label="Is the student Physically challenged?" name="physical">
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item
-                  label="If He/ She Physically challenged Specify, Otherwish Enter Null"
-                  name="physicalDetails"
-                >
-                  <Input.TextArea
-                    placeholder="Specify condition or enter Null"
-                    autoSize={{ minRows: 2, maxRows: 3 }}
-                    maxLength={500}
-                  />
-                </Form.Item>
-              </>
-            )}
-
-            {currentStep === 2 && (
-              <>
-                <Form.Item
-                  label="Father's Name"
-                  name="fatherName"
-                  rules={[{ required: true, message: "Please enter father's name!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Mother's Name"
-                  name="motherName"
-                  rules={[{ required: true, message: "Please enter mother's name!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Father's Occupation"
-                  name="fatherOccupation"
-                  rules={[{ required: true, message: "Please enter father's occupation!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Mother's Occupation"
-                  name="motherOccupation"
-                  rules={[{ required: true, message: "Please enter mother's occupation!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Father's Annual Income"
-                  name="fatherIncome"
-                  rules={[{ required: true, message: "Please enter father's income!" }]}
-                >
-                  <Input
-                    maxLength={10}
-                    onInput={(e) => {
-                      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                    }}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  label="Mother's Annual Income"
-                  name="motherIncome"
-                  rules={[{ required: true, message: "Please enter mother's income!" }]}
-                >
-                  <Input
-                    maxLength={10}
-                    onInput={(e) => {
-                      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                    }}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  label="Address"
-                  name="address"
-                  rules={[{ required: true, message: "Please enter address!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Pincode"
-                  name="pincode"
-                  rules={[
-                    { required: true, message: "Enter a valid 6-digit pincode!" },
-                    { pattern: /^[0-9]{6}$/, message: "Invalid pincode!" }
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Telephone Number"
-                  name="telephoneNumber"
-                  rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid telephone number!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  label="Mobile Number"
-                  name="mobileNumber"
-                  rules={[{ pattern: /^[0-9]{10}$/, message: "Invalid mobile number!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <h3>Guardian Information</h3>
-
-                <Form.Item label="Guardian's Name" name="guardianName">
-                  <Input />
-                </Form.Item>
-
-                <Form.Item label="Guardian's Occupation" name="guardianOccupation">
-                  <Input />
-                </Form.Item>
-
-                <Form.Item label="Guardian Address" name="guardianAddress">
-                  <Input.TextArea />
-                </Form.Item>
-
-                <Form.Item label="Guardian Phone Number" name="guardianNumber">
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  name="parentconsentform"
-                  label="Is parent consent hardcopy attached?"
-                  rules={[{ required: true, message: "Please select an option!" }]}
-                >
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-              </>
-            )}
-            {currentStep === 3 && (
-              <>
-
-                <Form.Item
-                  name="passorfail"
-                  label="Has He/ She passed in the last class studied?"
-                  rules={[{ required: true, message: 'Please select Yes or No' }]}
-                >
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item
-                  name="tceslc"
-                  label="Is T.C/ E.S.L.C/ Record sheet submitted?"
-                  rules={[{ required: true, message: 'Please select Yes or No' }]}
-                >
-                  <Radio.Group>
-                    <Radio value="Yes">Yes</Radio>
-                    <Radio value="No">No</Radio>
-                  </Radio.Group>
-                </Form.Item>
-
-                <Form.Item
-                  label="First Language Preference"
-                  name="firstLanguage"
-                  rules={[{ required: true, message: 'Please enter first language' }]}
-                >
-                  <Input />
-                </Form.Item>
-              </>
-            )}
-            {currentStep === 4 && (
-              <>
-                <Form.Item
-                  label="Bank Name"
-                  name="bankName"
-                  rules={[{ required: true, message: "Please enter bank name!" }]}
-                >
-                  <Input />
-                </Form.Item>
-
-                <Form.Item
-                  name="branchName"
-                  label="Branch Name"
-                  rules={[{ required: true, message: "Please enter branch name!" }]}
-                >
-                  <Input
-                    maxLength={50}
-                    placeholder="Enter Branch Name"
-                    onInput={(e) => {
-                      e.target.value = e.target.value
-                        .replace(/[^a-zA-Z\s]/g, '')
-                        .slice(0, 50);
-                    }}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="accountNumber"
-                  label="Bank Account Number"
-                  rules={[
-                    { required: true, message: "Please enter account number!" },
-                    { validator: validateAccountNumber }
-                  ]}
-                >
-                  <Input
-                    maxLength={17}
-                    placeholder="Enter Account Number"
-                    onInput={(e) => {
-                      e.target.value = e.target.value
-                        .replace(/[^0-9]/g, '')
-                        .slice(0, 17);
-                    }}
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="ifsccode"
-                  label="IFSC Code"
-                  rules={[
-                    { required: true, message: "Please enter IFSC Code!" },
-                    { validator: validateIFSCCode }
-                  ]}
-                >
-                  <Input
-                    maxLength={11}
-                    placeholder="Enter IFSC Code"
-                    onInput={(e) => {
-                      e.target.value = e.target.value
-                        .toUpperCase()
-                        .replace(/[^A-Z0-9]/g, '')
-                        .slice(0, 11);
-                    }}
-                  />
-                </Form.Item>
-              </>
-            )}
-
-            <div style={{ marginTop: 24, textAlign: "right" }}>
-              {currentStep > 0 && (
-                <Button style={{ marginRight: 8 }} onClick={() => setCurrentStep(currentStep - 1)}>
-                  Previous
-                </Button>
-              )}
-              {currentStep < 4 && (
-                <Button type="primary" onClick={() => setCurrentStep(currentStep + 1)}>
-                  Next
-                </Button>
-              )}
-              {currentStep === 4 && (
-                <Button type="primary" onClick={handleUpdate}>
-                  Submit
-                </Button>
-              )}
-            </div>
-          </Form>
-        </Modal>
       </div>
-    </div>
+    </Layout>
   );
 };
-
-
 
 export default StudentSSLCList;
